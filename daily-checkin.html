@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>我很棒了</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;600&family=DM+Mono:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --text: #e8e0d4;
+    --text-dim: #6b6560;
+    --text-mid: #9e9690;
+    --morning: #e8c97a;
+    --night: #8ab4c9;
+    --bonus: #b48ee8;
+    --affirm: #8ec9a0;
+    --gratitude: #c9a08e;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: 'Noto Serif TC', serif; min-height: 100dvh; overflow-x: hidden; }
+  .app { max-width: 480px; margin: 0 auto; padding: 0 20px 100px; }
+
+  header { padding: 48px 0 16px; display: flex; flex-direction: column; gap: 4px; }
+  .date-label { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.15em; color: var(--text-dim); text-transform: uppercase; }
+  h1 { font-size: 24px; font-weight: 300; letter-spacing: -0.01em; line-height: 1.3; }
+  .page-title { font-size: 18px; font-weight: 300; color: var(--text-mid); margin-top: 2px; }
+  .page-title.morning-title { color: var(--morning); opacity: 0.85; }
+  .page-title.night-title { color: var(--night); opacity: 0.85; }
+
+  .tabs { display: flex; gap: 8px; margin: 20px 0 18px; background: var(--surface); border-radius: 12px; padding: 5px; }
+  .tab { flex: 1; padding: 10px; border: none; border-radius: 9px; background: transparent; color: var(--text-dim); font-family: 'Noto Serif TC', serif; font-size: 14px; cursor: pointer; transition: all 0.25s; }
+  .tab.active { background: var(--surface2); color: var(--text); }
+  .tab.morning.active { color: var(--morning); }
+  .tab.night.active { color: var(--night); }
+
+  .section { display: none; }
+  .section.visible { display: block; animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+  .card-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 12px; }
+  .card.bonus-card { border-color: rgba(180,142,232,0.2); background: rgba(180,142,232,0.04); }
+  .card.bonus-card .card-label { color: rgba(180,142,232,0.5); }
+  .card.affirm-card { border-color: rgba(142,201,160,0.2); background: rgba(142,201,160,0.04); }
+  .card.affirm-card .card-label { color: rgba(142,201,160,0.5); }
+  .card.gratitude-card { border-color: rgba(201,160,142,0.2); background: rgba(201,160,142,0.04); }
+  .card.gratitude-card .card-label { color: rgba(201,160,142,0.5); }
+  .card.reflect-card { border-color: rgba(138,180,201,0.15); background: rgba(138,180,201,0.03); }
+  .card.reflect-card .card-label { color: rgba(138,180,201,0.45); }
+  .card.closing-card { border-color: rgba(232,224,212,0.1); }
+  .card.closing-card .card-label { color: rgba(232,224,212,0.3); }
+
+  .task-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .task-row:last-child { margin-bottom: 0; }
+  .task-num { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--morning); min-width: 18px; opacity: 0.7; }
+  .task-num.bonus { color: var(--bonus); }
+  .task-num.gratitude { color: var(--gratitude); opacity: 0.8; }
+  .task-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-family: 'Noto Serif TC', serif; font-size: 15px; outline: none; transition: border-color 0.2s; -webkit-appearance: none; }
+  .task-input::placeholder { color: var(--text-dim); font-size: 14px; }
+  .task-input:focus { border-color: var(--morning); }
+  .task-input.bonus-input:focus { border-color: var(--bonus); }
+  .task-input.affirm-input:focus { border-color: var(--affirm); }
+  .task-input.gratitude-input:focus { border-color: var(--gratitude); }
+
+  .btn { width: 100%; padding: 16px; border: none; border-radius: 12px; font-family: 'Noto Serif TC', serif; font-size: 16px; cursor: pointer; letter-spacing: 0.03em; transition: all 0.2s; margin-top: 8px; }
+  .btn-morning { background: var(--morning); color: #1a1500; }
+  .btn-night { background: var(--night); color: #091520; }
+  .btn:active { transform: scale(0.98); opacity: 0.9; }
+
+  .done-selector { display: flex; gap: 8px; margin: 6px 0 2px; }
+  .done-btn { flex: 1; padding: 12px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); color: var(--text-mid); font-size: 14px; font-family: 'Noto Serif TC', serif; cursor: pointer; transition: all 0.2s; text-align: center; }
+  .done-btn.selected { border-color: var(--night); color: var(--night); background: rgba(138,180,201,0.08); }
+  .done-btn.bonus-done-btn.selected { border-color: var(--bonus); color: var(--bonus); background: rgba(180,142,232,0.08); }
+
+  .mood-selector { display: flex; gap: 6px; margin: 6px 0 2px; }
+  .mood-btn { flex: 1; padding: 10px 2px 8px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); cursor: pointer; transition: all 0.2s; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .mood-btn .mood-emoji { font-size: 22px; }
+  .mood-btn .mood-label { font-size: 10px; color: var(--text-dim); font-family: 'DM Mono', monospace; }
+  .mood-btn.selected { border-color: var(--text-mid); background: rgba(232,224,212,0.06); }
+  .mood-btn.selected .mood-label { color: var(--text-mid); }
+
+  textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 13px 14px; color: var(--text); font-family: 'Noto Serif TC', serif; font-size: 15px; outline: none; resize: none; min-height: 80px; transition: border-color 0.2s; -webkit-appearance: none; }
+  textarea:focus { border-color: var(--night); }
+  textarea.reflect-ta:focus { border-color: rgba(138,180,201,0.5); }
+  textarea.closing-ta:focus { border-color: rgba(232,224,212,0.3); }
+  textarea::placeholder { color: var(--text-dim); font-size: 14px; }
+
+  .morning-ref { background: rgba(232,201,122,0.04); border: 1px solid rgba(232,201,122,0.12); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .morning-ref .ref-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: rgba(232,201,122,0.4); text-transform: uppercase; margin-bottom: 10px; }
+  .morning-ref .ref-affirm { font-size: 13px; color: rgba(142,201,160,0.7); font-style: italic; margin-bottom: 10px; padding: 6px 10px; background: rgba(142,201,160,0.05); border-radius: 8px; border-left: 2px solid rgba(142,201,160,0.25); }
+  .morning-ref .ref-task { font-size: 14px; color: rgba(232,201,122,0.75); padding: 3px 0; display: flex; gap: 10px; }
+  .morning-ref .ref-task span { opacity: 0.5; font-family: 'DM Mono', monospace; font-size: 12px; }
+  .morning-ref .ref-task.bonus-ref { color: rgba(180,142,232,0.75); }
+  .morning-ref .ref-divider { height: 1px; background: rgba(232,201,122,0.08); margin: 10px 0; }
+  .morning-ref .bonus-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em; color: rgba(180,142,232,0.4); text-transform: uppercase; margin-bottom: 8px; }
+
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 22px; margin-bottom: 12px; text-align: center; }
+  .result-score { font-family: 'DM Mono', monospace; font-size: 48px; font-weight: 300; letter-spacing: -0.04em; line-height: 1; margin-bottom: 8px; }
+  .result-score.morning { color: var(--morning); }
+  .result-score.night { color: var(--night); }
+  .result-msg { font-size: 15px; color: var(--text-mid); line-height: 1.6; margin-bottom: 14px; }
+  .result-mood { font-size: 26px; margin-bottom: 8px; }
+  .result-note { font-size: 13px; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 14px; line-height: 1.8; text-align: left; }
+  .result-note-row { padding: 3px 0; display: flex; gap: 8px; align-items: flex-start; }
+  .result-note-icon { opacity: 0.6; flex-shrink: 0; }
+
+  /* ── Log ── */
+  .log-entry { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; cursor: pointer; transition: border-color 0.2s; }
+  .log-entry:active { border-color: var(--text-dim); }
+  .log-entry-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .log-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-dim); letter-spacing: 0.1em; }
+  .log-edit-hint { font-size: 11px; color: var(--text-dim); opacity: 0.5; }
+  .log-affirm { font-size: 13px; color: rgba(142,201,160,0.7); font-style: italic; margin-bottom: 8px; padding: 5px 10px; background: rgba(142,201,160,0.05); border-radius: 6px; border-left: 2px solid rgba(142,201,160,0.2); }
+  .log-tasks { margin-bottom: 8px; }
+  .log-task { font-size: 13px; color: var(--text-mid); padding: 2px 0; display: flex; gap: 10px; align-items: flex-start; }
+  .log-task .n { color: var(--morning); font-family: 'DM Mono', monospace; font-size: 11px; opacity: 0.6; margin-top: 2px; flex-shrink: 0; }
+  .log-task .nb { color: var(--bonus); font-family: 'DM Mono', monospace; font-size: 11px; opacity: 0.6; margin-top: 2px; flex-shrink: 0; }
+  .log-night-row { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; display: flex; flex-direction: column; gap: 5px; }
+  .log-night-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+  .log-score { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--night); }
+  .log-mood-icon { font-size: 15px; }
+  .log-detail { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+  .log-detail-row { display: flex; gap: 6px; padding: 1px 0; }
+  .log-detail-icon { flex-shrink: 0; opacity: 0.5; }
+  .log-incomplete { font-size: 12px; color: var(--text-dim); opacity: 0.5; font-style: italic; padding-top: 4px; }
+
+  .empty-log { text-align: center; color: var(--text-dim); font-size: 14px; padding: 48px 0; line-height: 1.8; }
+
+  /* ── Edit overlay ── */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; display: none; backdrop-filter: blur(4px); }
+  .overlay.visible { display: block; }
+  .sheet { position: fixed; bottom: 0; left: 0; right: 0; max-height: 92dvh; background: var(--bg); border-radius: 20px 20px 0 0; border-top: 1px solid var(--border); z-index: 101; overflow-y: auto; padding: 0 20px 40px; transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1); }
+  .sheet.visible { transform: translateY(0); }
+  .sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 14px auto 20px; }
+  .sheet-title { font-size: 16px; font-weight: 300; color: var(--text-mid); margin-bottom: 20px; text-align: center; }
+  .sheet-tabs { display: flex; gap: 8px; margin-bottom: 20px; background: var(--surface); border-radius: 12px; padding: 5px; }
+  .sheet-tab { flex: 1; padding: 9px; border: none; border-radius: 9px; background: transparent; color: var(--text-dim); font-family: 'Noto Serif TC', serif; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .sheet-tab.active { background: var(--surface2); }
+  .sheet-tab.morning.active { color: var(--morning); }
+  .sheet-tab.night.active { color: var(--night); }
+  .sheet-section { display: none; }
+  .sheet-section.visible { display: block; }
+
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 12px 22px; border-radius: 50px; font-size: 14px; opacity: 0; transition: all 0.3s; pointer-events: none; white-space: nowrap; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(13,13,13,0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--border); display: flex; padding: 10px 0 20px; }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; background: none; border: none; color: var(--text-dim); font-family: 'Noto Serif TC', serif; font-size: 11px; cursor: pointer; padding: 6px 0; transition: color 0.2s; }
+  .nav-btn .icon { font-size: 20px; }
+  .nav-btn.active { color: var(--text); }
+  .nav-btn.morning.active { color: var(--morning); }
+  .nav-btn.night.active { color: var(--night); }
+
+  .hint { font-size: 13px; color: var(--text-dim); line-height: 1.7; margin-bottom: 14px; padding: 11px 13px; background: var(--surface2); border-radius: 10px; }
+  .hint em { color: var(--morning); font-style: normal; }
+  .hint em.bonus { color: var(--bonus); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="date-label" id="dateLabel"></div>
+    <h1>我很棒了 ✨</h1>
+    <div class="page-title" id="pageTitle"></div>
+  </header>
+  <div class="tabs" id="mainTabs">
+    <button class="tab morning active" onclick="switchTab('morning')">🌞 早上</button>
+    <button class="tab night" onclick="switchTab('night')">🌙 晚上</button>
+  </div>
+  <div class="section visible" id="morningSection"><div id="morningContent"></div></div>
+  <div class="section" id="nightSection"><div id="nightContent"></div></div>
+  <div class="section" id="logSection"><div id="logContent"></div></div>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn morning active" id="navMorning" onclick="showPage('morning')"><span class="icon">🌞</span>早上</button>
+  <button class="nav-btn night" id="navNight" onclick="showPage('night')"><span class="icon">🌙</span>晚上</button>
+  <button class="nav-btn" id="navLog" onclick="showPage('log')"><span class="icon">📖</span>紀錄</button>
+</nav>
+
+<!-- Edit sheet overlay -->
+<div class="overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="editSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="sheetTitle"></div>
+  <div class="sheet-tabs">
+    <button class="sheet-tab morning active" id="sheetTabMorning" onclick="switchSheetTab('morning')">🌞 早上</button>
+    <button class="sheet-tab night" id="sheetTabNight" onclick="switchSheetTab('night')">🌙 晚上</button>
+  </div>
+  <div class="sheet-section visible" id="sheetMorning"></div>
+  <div class="sheet-section" id="sheetNight"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let currentPage = 'morning';
+let selectedDone = null;
+let selectedBonusDone = null;
+let selectedMood = null;
+let editingKey = null;
+let editSelectedDone = null;
+let editSelectedBonusDone = null;
+let editSelectedMood = null;
+let currentSheetTab = 'morning';
+
+const MOODS = [
+  { emoji: '😔', label: '很低落' },
+  { emoji: '😕', label: '有點累' },
+  { emoji: '😐', label: '還好' },
+  { emoji: '🙂', label: '不錯' },
+  { emoji: '😄', label: '很好！' },
+];
+
+function getTodayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function getFormattedDate() {
+  const d = new Date();
+  const days = ['日','一','二','三','四','五','六'];
+  return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日　週${days[d.getDay()]}`;
+}
+
+function formatDateLabel(key) {
+  const [y,m,d] = key.split('-');
+  const date = new Date(+y, +m-1, +d);
+  const days = ['日','一','二','三','四','五','六'];
+  return `${y}-${m}-${d}　週${days[date.getDay()]}`;
+}
+
+function loadData(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || null; } catch { return null; }
+}
+
+function saveData(key, val) {
+  localStorage.setItem(key, JSON.stringify(val));
+}
+
+function getAllLogs() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('day_')) keys.push(k);
+  }
+  return keys.sort().reverse().map(k => ({ key: k.replace('day_',''), ...loadData(k) }));
+}
+
+document.getElementById('dateLabel').textContent = getFormattedDate();
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function setPageTitle(page) {
+  const el = document.getElementById('pageTitle');
+  if (page === 'morning') { el.textContent = '毋須追憶昨日'; el.className = 'page-title morning-title'; }
+  else if (page === 'night') { el.textContent = '深呼吸，放輕鬆'; el.className = 'page-title night-title'; }
+  else { el.textContent = ''; el.className = 'page-title'; }
+}
+
+function showPage(page) {
+  currentPage = page;
+  ['morning','night','log'].forEach(p => document.getElementById(p+'Section').classList.toggle('visible', p === page));
+  document.getElementById('mainTabs').style.display = (page === 'log') ? 'none' : 'flex';
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById({morning:'navMorning',night:'navNight',log:'navLog'}[page]).classList.add('active');
+  setPageTitle(page);
+  if (page === 'morning') renderMorning();
+  if (page === 'night') renderNight();
+  if (page === 'log') renderLog();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.tab.' + tab).classList.add('active');
+  showPage(tab);
+}
+
+// ── Morning ──
+function renderMorning(dateKey) {
+  const key = dateKey || getTodayKey();
+  const existing = loadData('day_' + key);
+  const el = document.getElementById('morningContent');
+  if (existing && existing.tasks) {
+    const bonusHtml = existing.bonusTasks && existing.bonusTasks.filter(Boolean).length > 0
+      ? `<div style="height:8px"></div><div style="font-family:DM Mono,monospace;font-size:10px;letter-spacing:0.1em;color:rgba(180,142,232,0.5);text-transform:uppercase;margin-bottom:6px;">加分任務</div>${existing.bonusTasks.filter(Boolean).map((t,i) => `<div style="text-align:left;padding:3px 0;color:rgba(180,142,232,0.75);font-size:13px;"><span style="font-family:DM Mono,monospace;font-size:12px;margin-right:10px;opacity:0.5;">+${i+1}</span>${t}</div>`).join('')}` : '';
+    const affirmHtml = existing.affirmation ? `<div style="font-size:13px;color:rgba(142,201,160,0.8);font-style:italic;margin-bottom:10px;padding:6px 10px;background:rgba(142,201,160,0.05);border-radius:8px;border-left:2px solid rgba(142,201,160,0.25);">「${existing.affirmation}」</div>` : '';
+    el.innerHTML = `
+      <div class="result-card">
+        <div class="result-score morning">✓</div>
+        <div class="result-msg">今天的任務已設定好了</div>
+        <div class="result-note">${affirmHtml}${existing.tasks.map((t,i) => `<div style="text-align:left;padding:3px 0;color:var(--text-mid);font-size:13px;"><span style="color:var(--morning);font-family:DM Mono,monospace;font-size:12px;margin-right:10px;">${i+1}</span>${t}</div>`).join('')}${bonusHtml}</div>
+      </div>
+      <div class="hint">想修改嗎？點下方「重新設定」清除後重填。</div>
+      <button class="btn" style="background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);" onclick="resetMorning()">重新設定</button>`;
+  } else {
+    el.innerHTML = `
+      <div class="hint">先給自己一個 <em>肯定</em>，再設定今天的 <em>底線任務</em>。<br>狀況好的話加上 <em class="bonus">加分任務</em> 挑戰自己 🌟</div>
+      <div class="card affirm-card">
+        <div class="card-label">💚 對自己說一句肯定的話</div>
+        <div class="task-row"><input class="task-input affirm-input" id="affirmInput" type="text" placeholder="我今天很勇敢、我已經很努力了…" maxlength="60"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">底線任務（完成就算今天成功）</div>
+        ${[1,2,3].map(i => `<div class="task-row"><span class="task-num">${i}</span><input class="task-input" id="task${i}" type="text" placeholder="今天一定要完成的事…" maxlength="40"></div>`).join('')}
+      </div>
+      <div class="card bonus-card">
+        <div class="card-label">✦ 加分任務（選填，狀況好再挑戰）</div>
+        ${[1,2].map(i => `<div class="task-row"><span class="task-num bonus">+${i}</span><input class="task-input bonus-input" id="bonus${i}" type="text" placeholder="如果還有餘力…" maxlength="40"></div>`).join('')}
+      </div>
+      <button class="btn btn-morning" onclick="saveMorning()">出發 🌞</button>`;
+  }
+}
+
+function saveMorning() {
+  const tasks = [1,2,3].map(i => document.getElementById('task'+i).value.trim());
+  if (tasks.filter(Boolean).length === 0) { showToast('至少填一個底線任務吧 🙂'); return; }
+  const affirmation = document.getElementById('affirmInput').value.trim();
+  const bonusTasks = [1,2].map(i => document.getElementById('bonus'+i).value.trim());
+  const today = getTodayKey();
+  const existing = loadData('day_' + today) || {};
+  saveData('day_' + today, { ...existing, affirmation, tasks, bonusTasks, morningTime: new Date().toISOString() });
+  showToast('✨ 今天的目標設定完成！');
+  renderMorning();
+}
+
+function resetMorning() {
+  const today = getTodayKey();
+  const existing = loadData('day_' + today) || {};
+  delete existing.affirmation; delete existing.tasks; delete existing.bonusTasks; delete existing.morningTime;
+  saveData('day_' + today, existing);
+  renderMorning();
+}
+
+// ── Night ──
+function renderNight() {
+  const today = getTodayKey();
+  const existing = loadData('day_' + today) || {};
+  const el = document.getElementById('nightContent');
+  if (existing.closingNote !== undefined) {
+    el.innerHTML = buildNightResult(existing);
+    el.innerHTML += `<div class="hint">今天已經結算囉。好好休息 🌙</div><button class="btn" style="background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);" onclick="resetNight()">重新結算</button>`;
+    return;
+  }
+  el.innerHTML = buildNightForm(existing, 'main');
+  selectedDone = null; selectedBonusDone = null; selectedMood = null;
+}
+
+function buildNightResult(data) {
+  const msgs = ['今天能存在就很好，明天繼續。','完成了一件，這就是進步。','兩件打勾，表現很好！','三件全完成，今天很強。'];
+  const moodData = data.mood !== undefined ? MOODS[data.mood] : null;
+  const gratitudeHtml = data.gratitude && data.gratitude.filter(Boolean).length > 0
+    ? data.gratitude.filter(Boolean).map(g => `<div class="result-note-row"><span class="result-note-icon">🙏</span><span>${g}</span></div>`).join('') : '';
+  return `<div class="result-card">
+    ${moodData ? `<div class="result-mood">${moodData.emoji}</div>` : ''}
+    <div class="result-score night">${data.done}<span style="font-size:22px;color:var(--text-dim)">/3</span>${data.bonusDone > 0 ? `<span style="font-size:18px;color:var(--bonus);margin-left:8px;">+${data.bonusDone}</span>` : ''}</div>
+    <div class="result-msg">${msgs[data.done] || ''}</div>
+    <div class="result-note">
+      ${gratitudeHtml}
+      ${data.reflection ? `<div class="result-note-row"><span class="result-note-icon">🔍</span><span>${data.reflection}</span></div>` : ''}
+      ${data.closingNote ? `<div class="result-note-row" style="margin-top:6px;"><span class="result-note-icon">💬</span><span style="font-style:italic;">「${data.closingNote}」</span></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function buildNightForm(existing, prefix) {
+  const hasBonusTasks = existing.bonusTasks && existing.bonusTasks.filter(Boolean).length > 0;
+  const bonusCount = hasBonusTasks ? existing.bonusTasks.filter(Boolean).length : 0;
+  let morningRef = '';
+  if (existing.tasks) {
+    morningRef = `<div class="morning-ref">
+      <div class="ref-label">今天早上</div>
+      ${existing.affirmation ? `<div class="ref-affirm">「${existing.affirmation}」</div>` : ''}
+      ${existing.tasks.map((t,i) => `<div class="ref-task"><span>${i+1}</span>${t||'（未填）'}</div>`).join('')}
+      ${hasBonusTasks ? `<div class="ref-divider"></div><div class="bonus-label">加分任務</div>${existing.bonusTasks.filter(Boolean).map((t,i) => `<div class="ref-task bonus-ref"><span>+${i+1}</span>${t}</div>`).join('')}` : ''}
+    </div>`;
+  } else {
+    morningRef = `<div class="hint" style="margin-bottom:12px;">今天沒有設定早上任務，但還是可以結算 🙂</div>`;
+  }
+  const p = prefix;
+  return `${morningRef}
+    <div class="card">
+      <div class="card-label">完成幾個底線任務？</div>
+      <div class="done-selector">${[0,1,2,3].map(n => `<button class="done-btn" id="${p}doneBtn${n}" onclick="${p==='main'?'selectDone':'editSelectDone'}(${n})">${n}<br><span style="font-size:10px;opacity:0.5">${n===3?'全完成':''}</span></button>`).join('')}</div>
+    </div>
+    ${hasBonusTasks ? `<div class="card bonus-card">
+      <div class="card-label">✦ 加分任務完成幾個？</div>
+      <div class="done-selector">${Array.from({length:bonusCount+1},(_,n) => `<button class="done-btn bonus-done-btn" id="${p}bonusDoneBtn${n}" onclick="${p==='main'?'selectBonusDone':'editSelectBonusDone'}(${n})">${n}<br><span style="font-size:10px;opacity:0.5">${n===bonusCount?'全完成':''}</span></button>`).join('')}</div>
+    </div>` : ''}
+    <div class="card">
+      <div class="card-label">今天的心情溫度</div>
+      <div class="mood-selector">${MOODS.map((m,i) => `<button class="mood-btn" id="${p}moodBtn${i}" onclick="${p==='main'?'selectMood':'editSelectMood'}(${i})"><span class="mood-emoji">${m.emoji}</span><span class="mood-label">${m.label}</span></button>`).join('')}</div>
+    </div>
+    <div class="card gratitude-card">
+      <div class="card-label">🙏 三件感恩的事</div>
+      ${[1,2,3].map(i => `<div class="task-row"><span class="task-num gratitude">${i}</span><input class="task-input gratitude-input" id="${p}gratitude${i}" type="text" placeholder="今天感謝的一件事…" maxlength="50" value="${existing.gratitude&&existing.gratitude[i-1]?existing.gratitude[i-1]:''}"></div>`).join('')}
+    </div>
+    <div class="card reflect-card">
+      <div class="card-label">🔍 一個檢討</div>
+      <textarea class="reflect-ta" id="${p}reflectText" placeholder="今天有什麼可以做得更好？&#10;寫一件就好，不用苛責自己…" maxlength="150">${existing.reflection||''}</textarea>
+    </div>
+    <div class="card closing-card">
+      <div class="card-label">💬 想說的一句話</div>
+      <textarea class="closing-ta" id="${p}closingNote" placeholder="對今天、對自己、對明天…&#10;任何話都可以。" maxlength="150">${existing.closingNote!==undefined?existing.closingNote:''}</textarea>
+    </div>`;
+}
+
+function selectDone(n) {
+  selectedDone = n;
+  [0,1,2,3].forEach(i => { const b = document.getElementById('maindoneBtn'+i); if(b) b.classList.toggle('selected', i===n); });
+}
+function selectBonusDone(n) {
+  selectedBonusDone = n;
+  for(let i=0;i<=4;i++) { const b = document.getElementById('mainbonusDoneBtn'+i); if(b) b.classList.toggle('selected', i===n); }
+}
+function selectMood(n) {
+  selectedMood = n;
+  MOODS.forEach((_,i) => { const b = document.getElementById('mainmoodBtn'+i); if(b) b.classList.toggle('selected', i===n); });
+}
+
+function saveNight() {
+  if (selectedDone === null) { showToast('請選完成幾個底線任務 🙂'); return; }
+  if (selectedMood === null) { showToast('選一下今天的心情溫度 🙂'); return; }
+  const gratitude = [1,2,3].map(i => document.getElementById('maingratitude'+i).value.trim());
+  if (gratitude.filter(Boolean).length === 0) { showToast('寫一件感恩的事吧 🙏'); return; }
+  const reflection = document.getElementById('mainreflectText').value.trim();
+  const closingNote = document.getElementById('mainclosingNote').value.trim();
+  const today = getTodayKey();
+  const existing = loadData('day_' + today) || {};
+  saveData('day_' + today, { ...existing, done: selectedDone, bonusDone: selectedBonusDone||0, mood: selectedMood, gratitude, reflection, closingNote: closingNote||'', nightTime: new Date().toISOString() });
+  showToast('🌙 今日結算完成，好好休息！');
+  renderNight();
+}
+
+function resetNight() {
+  const today = getTodayKey();
+  const existing = loadData('day_' + today) || {};
+  delete existing.done; delete existing.bonusDone; delete existing.mood;
+  delete existing.gratitude; delete existing.reflection; delete existing.closingNote; delete existing.nightTime;
+  saveData('day_' + today, existing);
+  selectedDone = null; selectedBonusDone = null; selectedMood = null;
+  renderNight();
+}
+
+// ── Edit Sheet ──
+function openEditSheet(dateKey) {
+  editingKey = dateKey;
+  editSelectedDone = null; editSelectedBonusDone = null; editSelectedMood = null;
+  currentSheetTab = 'morning';
+  document.getElementById('sheetTitle').textContent = formatDateLabel(dateKey);
+  renderSheetMorning(dateKey);
+  renderSheetNight(dateKey);
+  // default to morning tab
+  document.getElementById('sheetTabMorning').classList.add('active');
+  document.getElementById('sheetTabNight').classList.remove('active');
+  document.getElementById('sheetMorning').classList.add('visible');
+  document.getElementById('sheetNight').classList.remove('visible');
+  document.getElementById('overlay').classList.add('visible');
+  document.getElementById('editSheet').classList.add('visible');
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('visible');
+  document.getElementById('editSheet').classList.remove('visible');
+  editingKey = null;
+  renderLog();
+}
+
+function switchSheetTab(tab) {
+  currentSheetTab = tab;
+  ['morning','night'].forEach(t => {
+    document.getElementById('sheetTab'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('active', t===tab);
+    document.getElementById('sheet'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('visible', t===tab);
+  });
+}
+
+function renderSheetMorning(dateKey) {
+  const existing = loadData('day_' + dateKey) || {};
+  const el = document.getElementById('sheetMorning');
+  el.innerHTML = `
+    <div class="card affirm-card">
+      <div class="card-label">💚 對自己說一句肯定的話</div>
+      <div class="task-row"><input class="task-input affirm-input" id="editAffirmInput" type="text" placeholder="我今天很勇敢…" maxlength="60" value="${existing.affirmation||''}"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">底線任務</div>
+      ${[1,2,3].map(i => `<div class="task-row"><span class="task-num">${i}</span><input class="task-input" id="editTask${i}" type="text" placeholder="底線任務…" maxlength="40" value="${existing.tasks&&existing.tasks[i-1]?existing.tasks[i-1]:''}"></div>`).join('')}
+    </div>
+    <div class="card bonus-card">
+      <div class="card-label">✦ 加分任務（選填）</div>
+      ${[1,2].map(i => `<div class="task-row"><span class="task-num bonus">+${i}</span><input class="task-input bonus-input" id="editBonus${i}" type="text" placeholder="加分任務…" maxlength="40" value="${existing.bonusTasks&&existing.bonusTasks[i-1]?existing.bonusTasks[i-1]:''}"></div>`).join('')}
+    </div>
+    <button class="btn btn-morning" onclick="saveEditMorning()">儲存早上 🌞</button>
+  `;
+}
+
+function saveEditMorning() {
+  const tasks = [1,2,3].map(i => document.getElementById('editTask'+i).value.trim());
+  const affirmation = document.getElementById('editAffirmInput').value.trim();
+  const bonusTasks = [1,2].map(i => document.getElementById('editBonus'+i).value.trim());
+  const existing = loadData('day_' + editingKey) || {};
+  saveData('day_' + editingKey, { ...existing, affirmation, tasks, bonusTasks, morningTime: existing.morningTime || new Date().toISOString() });
+  showToast('✨ 早上已更新！');
+  renderSheetMorning(editingKey);
+}
+
+function renderSheetNight(dateKey) {
+  const existing = loadData('day_' + dateKey) || {};
+  const el = document.getElementById('sheetNight');
+  el.innerHTML = buildNightForm(existing, 'edit') + `<button class="btn btn-night" style="margin-top:8px;" onclick="saveEditNight()">儲存晚上 🌙</button>`;
+  // restore selections
+  if (existing.done !== undefined) {
+    editSelectedDone = existing.done;
+    setTimeout(() => { const b = document.getElementById('editdoneBtn'+existing.done); if(b) b.classList.add('selected'); }, 50);
+  }
+  if (existing.bonusDone !== undefined) {
+    editSelectedBonusDone = existing.bonusDone;
+    setTimeout(() => { const b = document.getElementById('editbonusDoneBtn'+existing.bonusDone); if(b) b.classList.add('selected'); }, 50);
+  }
+  if (existing.mood !== undefined) {
+    editSelectedMood = existing.mood;
+    setTimeout(() => { const b = document.getElementById('editmoodBtn'+existing.mood); if(b) b.classList.add('selected'); }, 50);
+  }
+}
+
+function editSelectDone(n) {
+  editSelectedDone = n;
+  [0,1,2,3].forEach(i => { const b = document.getElementById('editdoneBtn'+i); if(b) b.classList.toggle('selected', i===n); });
+}
+function editSelectBonusDone(n) {
+  editSelectedBonusDone = n;
+  for(let i=0;i<=4;i++) { const b = document.getElementById('editbonusDoneBtn'+i); if(b) b.classList.toggle('selected', i===n); }
+}
+function editSelectMood(n) {
+  editSelectedMood = n;
+  MOODS.forEach((_,i) => { const b = document.getElementById('editmoodBtn'+i); if(b) b.classList.toggle('selected', i===n); });
+}
+
+function saveEditNight() {
+  if (editSelectedDone === null) { showToast('請選完成幾個底線任務 🙂'); return; }
+  if (editSelectedMood === null) { showToast('選一下今天的心情溫度 🙂'); return; }
+  const gratitude = [1,2,3].map(i => document.getElementById('editgratitude'+i).value.trim());
+  if (gratitude.filter(Boolean).length === 0) { showToast('寫一件感恩的事吧 🙏'); return; }
+  const reflection = document.getElementById('editreflectText').value.trim();
+  const closingNote = document.getElementById('editclosingNote').value.trim();
+  const existing = loadData('day_' + editingKey) || {};
+  saveData('day_' + editingKey, { ...existing, done: editSelectedDone, bonusDone: editSelectedBonusDone||0, mood: editSelectedMood, gratitude, reflection, closingNote: closingNote||'', nightTime: existing.nightTime || new Date().toISOString() });
+  showToast('🌙 晚上已更新！');
+  renderSheetNight(editingKey);
+}
+
+// ── Log ──
+function renderLog() {
+  const logs = getAllLogs();
+  const el = document.getElementById('logContent');
+  if (logs.length === 0) {
+    el.innerHTML = `<div style="padding-top:20px;"><div class="empty-log">還沒有任何紀錄<br><span style="font-size:12px;">從早上設定第一天的目標開始吧</span></div></div>`;
+    return;
+  }
+  const html = logs.map(log => {
+    const affirmHtml = log.affirmation ? `<div class="log-affirm">「${log.affirmation}」</div>` : '';
+    const tasks = log.tasks
+      ? log.tasks.filter(Boolean).map((t,i) => `<div class="log-task"><span class="n">${i+1}</span>${t}</div>`).join('')
+      : '<div class="log-task" style="opacity:0.4">未設定早上任務</div>';
+    const bonusHtml = log.bonusTasks && log.bonusTasks.filter(Boolean).length > 0
+      ? log.bonusTasks.filter(Boolean).map((t,i) => `<div class="log-task"><span class="nb">+${i+1}</span>${t}</div>`).join('') : '';
+    const moodData = log.mood !== undefined ? MOODS[log.mood] : null;
+    const nightRow = log.done !== undefined ? `
+      <div class="log-night-row">
+        <div class="log-night-meta">
+          ${moodData ? `<span class="log-mood-icon">${moodData.emoji}</span>` : ''}
+          <span class="log-score">底線 ${log.done}/3${log.bonusDone > 0 ? `　+${log.bonusDone}` : ''}</span>
+        </div>
+        <div class="log-detail">
+          ${log.gratitude&&log.gratitude.filter(Boolean).length>0 ? log.gratitude.filter(Boolean).map(g=>`<div class="log-detail-row"><span class="log-detail-icon">🙏</span><span>${g}</span></div>`).join('') : ''}
+          ${log.reflection?`<div class="log-detail-row"><span class="log-detail-icon">🔍</span><span>${log.reflection}</span></div>`:''}
+          ${log.closingNote?`<div class="log-detail-row"><span class="log-detail-icon">💬</span><span style="font-style:italic;">「${log.closingNote}」</span></div>`:''}
+        </div>
+      </div>` : `<div class="log-incomplete">晚上還沒結算　點此補填 →</div>`;
+    return `<div class="log-entry" onclick="openEditSheet('${log.key}')">
+      <div class="log-entry-header">
+        <div class="log-date">${formatDateLabel(log.key)}</div>
+        <div class="log-edit-hint">編輯</div>
+      </div>
+      ${affirmHtml}
+      <div class="log-tasks">${tasks}${bonusHtml}</div>
+      ${nightRow}
+    </div>`;
+  }).join('');
+
+  const withNight = logs.filter(l => l.done !== undefined);
+  const avgDone = withNight.length ? (withNight.reduce((s,l) => s+l.done, 0)/withNight.length).toFixed(1) : '-';
+  const moodLogs = withNight.filter(l => l.mood !== undefined);
+  const avgMood = moodLogs.length ? MOODS[Math.round(moodLogs.reduce((s,l)=>s+l.mood,0)/moodLogs.length)].emoji : '-';
+
+  el.innerHTML = `
+    <div style="display:flex;gap:10px;margin-bottom:18px;">
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:DM Mono,monospace;font-size:26px;color:var(--night);margin-bottom:4px;">${avgDone}</div><div class="card-label" style="margin:0;">平均完成</div></div>
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-size:26px;margin-bottom:4px;">${avgMood}</div><div class="card-label" style="margin:0;">平均心情</div></div>
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:DM Mono,monospace;font-size:26px;color:var(--morning);margin-bottom:4px;">${logs.length}</div><div class="card-label" style="margin:0;">記錄天數</div></div>
+    </div>
+    <div class="hint" style="margin-bottom:16px;">點任何一天可以 <em>補填或修改</em> 內容</div>
+    ${html}`;
+}
+
+setPageTitle('morning');
+renderMorning();
+</script>
+</body>
+</html>
