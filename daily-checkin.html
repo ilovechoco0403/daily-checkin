@@ -244,7 +244,9 @@ function exportData() {
     if (k && k.startsWith('day_')) data[k] = localStorage.getItem(k);
   }
   const str = JSON.stringify(data);
-  navigator.clipboard.writeText(str).then(() => showToast('✅ 資料已複製到剪貼簿！'));
+  document.getElementById('importText').value = str;
+  document.getElementById('importBox').style.display = 'block';
+  showToast('✅ 資料已顯示，請全選複製');
 }
 function showImport() {
   const box = document.getElementById('importBox');
