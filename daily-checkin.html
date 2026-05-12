@@ -228,9 +228,43 @@
   <div class="sheet-section visible" id="sheetMorning"></div>
   <div class="sheet-section" id="sheetNight"></div>
 </div>
-
+<div id="exportImportBar" style="position:fixed;top:0;left:0;right:0;z-index:200;background:#1e1e1e;border-bottom:1px solid #2a2a2a;padding:12px 20px;display:flex;gap:8px;max-width:480px;margin:0 auto;">
+  <button onclick="exportData()" style="flex:1;padding:10px;border:1px solid #e8c97a;border-radius:10px;background:transparent;color:#e8c97a;font-family:Noto Serif TC,serif;font-size:13px;cursor:pointer;">📤 匯出資料</button>
+  <button onclick="showImport()" style="flex:1;padding:10px;border:1px solid #8ab4c9;border-radius:10px;background:transparent;color:#8ab4c9;font-family:Noto Serif TC,serif;font-size:13px;cursor:pointer;">📥 匯入資料</button>
+</div>
+<div id="importBox" style="display:none;position:fixed;top:52px;left:0;right:0;z-index:200;background:#161616;border-bottom:1px solid #2a2a2a;padding:16px 20px;max-width:480px;margin:0 auto;">
+  <textarea id="importText" style="width:100%;height:80px;background:#1e1e1e;border:1px solid #2a2a2a;border-radius:10px;padding:10px;color:#e8e0d4;font-size:12px;font-family:monospace;resize:none;" placeholder="把匯出的資料貼在這裡…"></textarea>
+  <button onclick="importData()" style="width:100%;margin-top:8px;padding:12px;border:none;border-radius:10px;background:#8ab4c9;color:#091520;font-family:Noto Serif TC,serif;font-size:14px;cursor:pointer;">確認匯入</button>
+</div>
 <div class="toast" id="toast"></div>
-
+function exportData() {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('day_')) data[k] = localStorage.getItem(k);
+  }
+  const str = JSON.stringify(data);
+  navigator.clipboard.writeText(str).then(() => showToast('✅ 資料已複製到剪貼簿！'));
+}
+function showImport() {
+  const box = document.getElementById('importBox');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+function importData() {
+  const text = document.getElementById('importText').value.trim();
+  try {
+    const data = JSON.parse(text);
+    let count = 0;
+    for (const [k, v] of Object.entries(data)) {
+      if (k.startsWith('day_')) { localStorage.setItem(k, v); count++; }
+    }
+    showToast(`✅ 成功匯入 ${count} 天的資料！`);
+    document.getElementById('importBox').style.display = 'none';
+    renderToday();
+  } catch(e) {
+    showToast('❌ 格式錯誤，請重新複製');
+  }
+}
 <script>
 const MOODS = [
   { emoji: '😔', label: '很低落' },
