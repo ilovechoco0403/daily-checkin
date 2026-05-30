@@ -246,6 +246,8 @@
   .cal-cell.heat-3 { background: rgba(125,212,168,0.62); color: #0d2a1e; }
   .cal-cell.heat-4 { background: rgba(125,212,168,0.9); color: #0d2a1e; font-weight: 600; }
   .cal-cell .heat-num { font-size: 12px; }
+  .cal-cell .heat-badge { position: absolute; top: 2px; right: 3px; font-family: 'DM Mono', monospace; font-size: 8px; line-height: 1; padding: 1px 3px; border-radius: 6px; background: rgba(13,42,30,0.35); color: inherit; }
+  .cal-cell.heat-1 .heat-badge, .cal-cell.heat-2 .heat-badge { background: rgba(13,42,30,0.45); color: #d4f5e6; }
 
   /* ── 習慣完整紀錄頁 ── */
   .hp-back { display: inline-flex; align-items: center; gap: 6px; background: none; border: none; color: var(--text-mid); font-family: 'Noto Serif TC', serif; font-size: 14px; cursor: pointer; padding: 6px 0; margin-bottom: 8px; }
@@ -1092,7 +1094,8 @@ function renderHabitHistory() {
       else cls = 'heat-4';
     }
     if (isToday) cls += ' today';
-    const inner = count > 0 ? `<span class="heat-num">${count}</span>` : `<span class="heat-num">${d}</span>`;
+    // 日期一律顯示；有打卡的日子在右上角加小角標顯示打卡數
+    const inner = `<span class="heat-num">${d}</span>${count > 0 ? `<span class="heat-badge">${count}</span>` : ''}`;
     return { cls, inner };
   });
 
