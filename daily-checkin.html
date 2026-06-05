@@ -153,6 +153,14 @@
   .week-affirm-item { font-size: 13px; color: rgba(142,201,160,0.8); font-style: italic; padding: 5px 10px; background: rgba(142,201,160,0.05); border-radius: 7px; border-left: 2px solid rgba(142,201,160,0.2); }
   .week-keywords { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
   .week-keyword { font-size: 12px; color: var(--gratitude); background: rgba(201,160,142,0.08); border: 1px solid rgba(201,160,142,0.2); border-radius: 20px; padding: 4px 10px; }
+  /* AI 回饋 */
+  .ai-btn { display: inline-flex; align-items: center; gap: 6px; font-family: 'Noto Serif TC', serif; font-size: 13px; color: var(--bonus); background: rgba(232,201,122,0.08); border: 1px solid rgba(232,201,122,0.28); border-radius: 10px; padding: 9px 14px; cursor: pointer; transition: all 0.15s; }
+  .ai-btn:active { transform: scale(0.97); }
+  .ai-btn:disabled { opacity: 0.5; cursor: default; }
+  .ai-box { font-size: 13.5px; line-height: 1.85; color: var(--text-mid); background: rgba(232,201,122,0.05); border: 1px solid rgba(232,201,122,0.18); border-left: 2px solid rgba(232,201,122,0.5); border-radius: 10px; padding: 12px 14px; white-space: pre-wrap; }
+  .ai-box-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .ai-redo { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-dim); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 2px 0; }
+  .ai-loading { font-size: 13px; color: var(--text-dim); font-style: italic; padding: 4px 2px; }
   @keyframes pulse { 0%,80%,100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1); } }
 
   .empty-log { text-align: center; color: var(--text-dim); font-size: 14px; padding: 48px 0; line-height: 1.8; }
@@ -316,6 +324,8 @@ const MOODS = [
   { emoji: '😄', label: '很好！' },
 ];
 const DAYS_ZH = ['日','一','二','三','四','五','六'];
+// ⬇⬇⬇ 部署好 Cloudflare Worker 後，把網址填到這裡（例如 https://xxx.workers.dev）⬇⬇⬇
+const AI_ENDPOINT = 'https://daily-checkin-ai.emilyloas.workers.dev/';
 
 let currentPage = 'today';
 let currentDayTab = 'morning';
@@ -688,12 +698,11 @@ function renderWeek() {
       const emoji = entry && entry.mood!==undefined ? MOODS[entry.mood].emoji : '·';
       return `<div class="week-mood-cell"><span class="week-mood-emoji">${emoji}</span><span class="week-mood-day">${dayLabel}</span></div>`;
     }).join('');
-    // affirmations
-    const affirmations = days.filter(d=>d.affirmation).map(d=>`<div class="week-affirm-item">「${d.affirmation}」</div>`).join('');
-    // gratitude keywords (simple: split by space/comma, collect unique short ones)
-    const allGratitude = days.flatMap(d=>d.gratitude||[]).filter(Boolean);
-    const keywords = [...new Set(allGratitude.flatMap(g=>g.split(/[，,、\s]+/).filter(w=>w.length>=2&&w.length<=6)))].slice(0,8);
-    const keywordsHtml = keywords.map(k=>`<span class="week-keyword">${k}</span>`).join('');
+    // 隨機挑幾則「這週寫下的話」：肯定句 + 給自己的一句話
+    const phrases = [];
+    days.forEach(d=>{ if(d.affirmation) phrases.push(d.affirmation); if(d.closingNote) phrases.push(d.closingNote); });
+    const pickedPhrases = shuffleArr([...new Set(phrases)]).slice(0,3);
+    const phrasesHtml = pickedPhrases.map(p=>`<div class="week-affirm-item">「${escapeHtml(p)}」</div>`).join('');
     const wsId = ws.replace(/-/g,'');
     return `<div class="week-card" id="weekCard_${wsId}">
       <div class="week-header" onclick="toggleWeek('${wsId}')">
@@ -712,8 +721,9 @@ function renderWeek() {
         </div>
         <div class="week-section-label">心情走勢</div>
         <div class="week-mood-row">${moodStrip}</div>
-        ${affirmations?`<div class="week-section-label">這週的肯定</div><div class="week-affirm-list">${affirmations}</div>`:''}
-        ${keywordsHtml?`<div class="week-section-label">感恩關鍵字</div><div class="week-keywords">${keywordsHtml}</div>`:''}
+        ${phrasesHtml?`<div class="week-section-label">這週寫下的話</div><div class="week-affirm-list">${phrasesHtml}</div>`:''}
+        <div class="week-section-label">✨ AI 回饋</div>
+        <div id="aiBox_${wsId}">${renderAISection(ws, wsId)}</div>
       </div>
     </div>`;
   }).join('');
@@ -722,6 +732,70 @@ function renderWeek() {
 
 function toggleWeek(id) {
   document.getElementById('weekCard_'+id).classList.toggle('open');
+}
+
+// ── 週回顧 AI 回饋 ──
+function shuffleArr(a){ const r=a.slice(); for(let i=r.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [r[i],r[j]]=[r[j],r[i]]; } return r; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderAISection(ws, wsId){
+  const cached = loadData('aifeedback_'+ws);
+  if (cached && cached.text){
+    return `<div class="ai-box">${escapeHtml(cached.text)}</div>
+      <div class="ai-box-meta">
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);">${cached.date?cached.date+' 產生':''}</span>
+        <button class="ai-redo" onclick="generateAI('${ws}','${wsId}')">重新產生</button>
+      </div>`;
+  }
+  return `<button class="ai-btn" onclick="generateAI('${ws}','${wsId}')">✨ 產生這週的 AI 回饋</button>`;
+}
+
+function summarizeDay(d){
+  const [y,m,dd] = d.key.split('-').map(Number);
+  return {
+    date: d.key,
+    weekday: '週'+DAYS_ZH[new Date(y,m-1,dd).getDay()],
+    affirmation: d.affirmation||'',
+    underlineDone: d.done!==undefined ? d.done : null,
+    underlineTotal: d.tasks ? d.tasks.filter(Boolean).length : (d.done!==undefined?3:null),
+    bonusDone: d.bonusDone!==undefined ? d.bonusDone : null,
+    mood: d.mood!==undefined ? MOODS[d.mood].label : '',
+    gratitude: (d.gratitude||[]).filter(Boolean),
+    reflection: d.reflection||'',
+    closingNote: d.closingNote||''
+  };
+}
+function weekDaysData(ws){
+  return getAllLogs().filter(l=>getWeekStart(l.key)===ws).sort((a,b)=>a.key<b.key?-1:1).map(summarizeDay);
+}
+function buildAIPayload(ws){
+  const [y,m,dd] = ws.split('-').map(Number);
+  const prev = new Date(y, m-1, dd-7);
+  const prevWs = `${prev.getFullYear()}-${String(prev.getMonth()+1).padStart(2,'0')}-${String(prev.getDate()).padStart(2,'0')}`;
+  return { weekStart: ws, thisWeek: weekDaysData(ws), prevWeek: weekDaysData(prevWs) };
+}
+
+async function generateAI(ws, wsId){
+  const box = document.getElementById('aiBox_'+wsId);
+  if (!box) return;
+  if (!AI_ENDPOINT){ showToast('還沒設定 AI 服務 🛠'); return; }
+  box.innerHTML = `<div class="ai-loading">分析中…請稍候 🤔</div>`;
+  try {
+    const res = await fetch(AI_ENDPOINT, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(buildAIPayload(ws))
+    });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const text = data && data.feedback ? String(data.feedback).trim() : '';
+    if (!text) throw new Error('空回應');
+    saveData('aifeedback_'+ws, { text, date: getTodayKey() });
+    box.innerHTML = renderAISection(ws, wsId);
+  } catch(e){
+    box.innerHTML = `<div class="ai-loading">產生失敗：${escapeHtml(String(e.message||e))}</div>
+      <button class="ai-btn" style="margin-top:8px;" onclick="generateAI('${ws}','${wsId}')">再試一次</button>`;
+  }
 }
 
 
