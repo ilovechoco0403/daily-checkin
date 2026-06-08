@@ -246,6 +246,8 @@
   .cal-cell.pickable { cursor: pointer; background: var(--surface2); border-color: var(--border); }
   .cal-cell.pickable:active { transform: scale(0.94); }
   .cal-cell.future { opacity: 0.25; }
+  .cal-cell.clickable { cursor: pointer; }
+  .cal-cell.clickable:active { transform: scale(0.94); opacity: 0.8; }
   .cal-cell.today { border-color: var(--morning); color: var(--morning); }
   .cal-cell.has-record::after { content: ''; position: absolute; bottom: 5px; width: 4px; height: 4px; border-radius: 50%; background: var(--night); }
   /* 習慣熱力圖等級 */
@@ -279,11 +281,11 @@
     <button class="tab night" id="tabNight" onclick="switchDayTab('night')">🌙 晚上</button>
   </div>
   <div class="section visible" id="todaySection"><div id="todayContent"></div></div>
+  <div class="section" id="habitSection"><div id="habitContent"></div></div>
   <div class="section" id="logSection"><div id="logContent"></div></div>
   <div class="section" id="weekSection"><div id="weekContent"></div></div>
 </div>
 
-<div class="section" id="habitSection"><div id="habitContent"></div></div>
 <div class="section" id="habitHistorySection"><div class="app" style="padding-top:0;"><div id="habitHistoryContent"></div></div></div>
 
 <nav class="nav">
@@ -1170,7 +1172,7 @@ function renderHabitHistory() {
     if (isToday) cls += ' today';
     // 日期一律顯示；有打卡的日子在右上角加小角標顯示打卡數
     const inner = `<span class="heat-num">${d}</span>${count > 0 ? `<span class="heat-badge">${count}</span>` : ''}`;
-    return { cls, inner };
+    return { cls: cls + ' clickable', inner, onclick: `onclick="openHabitDayEdit('${dk}')"` };
   });
 
   const legend = `<div class="hp-legend">
@@ -1205,6 +1207,45 @@ function renderHabitHistory() {
   `;
 }
 
+// ── 習慣歷史補打卡彈窗 ──
+function openHabitDayEdit(dateKey) {
+  const habits = getHabits();
+  if (!habits.length) { showToast('目前沒有習慣可以記錄 🙂'); return; }
+  renderHabitDayEditSheet(dateKey);
+  document.getElementById('habitDayEditOverlay').classList.add('visible');
+  document.getElementById('habitDayEditSheet').classList.add('visible');
+}
+function closeHabitDayEdit() {
+  document.getElementById('habitDayEditOverlay').classList.remove('visible');
+  document.getElementById('habitDayEditSheet').classList.remove('visible');
+  renderHabitHistory();
+}
+function renderHabitDayEditSheet(dateKey) {
+  const habits = getHabits();
+  const log = getHabitLog(dateKey);
+  const [y,m,d] = dateKey.split('-');
+  const date = new Date(+y, +m-1, +d);
+  document.getElementById('habitDayEditTitle').textContent = `${y}/${m}/${d}　週${DAYS_ZH[date.getDay()]}`;
+  document.getElementById('habitDayEditList').innerHTML = habits.map(h => {
+    const checked = !!log[h.id];
+    return `<div class="night-habit-row">
+      <span class="night-habit-emoji">${h.emoji}</span>
+      <span class="night-habit-name">${h.name}</span>
+      <button class="night-habit-check${checked?' checked':''}" onclick="toggleHabitDayCheck('${h.id}','${dateKey}')">
+        ${checked ? '✓' : ''}
+      </button>
+    </div>`;
+  }).join('');
+}
+function toggleHabitDayCheck(habitId, dateKey) {
+  const log = getHabitLog(dateKey);
+  log[habitId] = !log[habitId];
+  if (!log[habitId]) delete log[habitId];
+  saveHabitLog(dateKey, log);
+  renderHabitDayEditSheet(dateKey);
+  if (dateKey === getTodayKey()) { renderNightHabits(); renderHabit(); }
+}
+
 // ── Init ──
 document.getElementById('dateLabel').textContent = getFormattedDate();
 document.getElementById('pageSubtitle').textContent = '毋須追憶昨日';
@@ -1237,6 +1278,17 @@ renderMorning();
     </div>
   </div>
   <button class="btn btn-habit" onclick="saveNewHabit()">新增 🌿</button>
+</div>
+
+<div id="habitDayEditOverlay" class="overlay" onclick="closeHabitDayEdit()"></div>
+<div id="habitDayEditSheet" class="sheet" style="z-index:201;">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="habitDayEditTitle"></div>
+  <div class="card" style="border-color:rgba(125,212,168,0.2);background:rgba(125,212,168,0.03);">
+    <div class="card-label" style="color:rgba(125,212,168,0.5);">🌿 補登記習慣打卡</div>
+    <div id="habitDayEditList"></div>
+  </div>
+  <button class="btn" style="background:var(--surface2);color:var(--text-mid);border:1px solid var(--border);margin-top:8px;" onclick="closeHabitDayEdit()">完成 ✓</button>
 </div>
 
 </body>
