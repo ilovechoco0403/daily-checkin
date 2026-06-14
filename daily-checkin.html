@@ -271,7 +271,7 @@
 </head>
 <body>
 <div class="app">
-  <header>
+  <header id="mainHeader">
     <div class="date-label" id="dateLabel"></div>
     <h1>我很棒了 ✨</h1>
     <div class="page-subtitle" id="pageSubtitle"></div>
@@ -284,9 +284,8 @@
   <div class="section" id="habitSection"><div id="habitContent"></div></div>
   <div class="section" id="logSection"><div id="logContent"></div></div>
   <div class="section" id="weekSection"><div id="weekContent"></div></div>
+  <div class="section" id="habitHistorySection"><div id="habitHistoryContent"></div></div>
 </div>
-
-<div class="section" id="habitHistorySection"><div class="app" style="padding-top:0;"><div id="habitHistoryContent"></div></div></div>
 
 <nav class="nav">
   <button class="nav-btn today active" id="navToday" onclick="showPage('today')"><span class="icon">☀️</span>今日</button>
@@ -371,6 +370,7 @@ function showToast(msg) {
 function showPage(page) {
   currentPage = page;
   document.getElementById('habitHistorySection').classList.remove('visible');
+  document.getElementById('mainHeader').style.display = '';
   ['today','habit','log','week'].forEach(p => document.getElementById(p+'Section').classList.toggle('visible', p===page));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById({today:'navToday',habit:'navHabit',log:'navLog',week:'navWeek'}[page]).classList.add('active');
@@ -1135,11 +1135,14 @@ function openHabitHistory() {
   habitHistMonth = d.getMonth() + 1;
   document.getElementById('habitSection').classList.remove('visible');
   document.getElementById('habitHistorySection').classList.add('visible');
+  document.getElementById('mainHeader').style.display = 'none';
+  window.scrollTo(0, 0);
   renderHabitHistory();
 }
 function closeHabitHistory() {
   document.getElementById('habitHistorySection').classList.remove('visible');
   document.getElementById('habitSection').classList.add('visible');
+  document.getElementById('mainHeader').style.display = '';
 }
 function shiftHabitHistMonth(delta) {
   habitHistMonth += delta;
