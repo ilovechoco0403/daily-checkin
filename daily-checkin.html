@@ -267,14 +267,32 @@
   .hp-habit-list { margin-top: 4px; }
   .hp-habit-line { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); padding: 3px 0; }
   .hp-month-summary { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-dim); text-align: center; margin-top: 4px; }
+
+  /* ── 獎勵系統 ── */
+  .reward-entry-btn { position: absolute; top: 46px; right: 0; display: flex; align-items: center; gap: 4px; background: rgba(232,201,122,0.1); border: 1px solid rgba(232,201,122,0.3); color: var(--morning); font-family: 'Noto Serif TC', serif; font-size: 12px; padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.15s; }
+  .reward-entry-btn:active { transform: scale(0.96); }
+  .rw-tabs { display: flex; gap: 6px; margin-bottom: 16px; background: var(--surface); border-radius: 12px; padding: 5px; }
+  .rw-tab { flex: 1; padding: 9px 2px; border: none; border-radius: 9px; background: transparent; color: var(--text-dim); font-family: 'Noto Serif TC', serif; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  .rw-tab.active { background: var(--surface2); color: var(--morning); }
+  .rw-pool-item { display: flex; align-items: center; gap: 6px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .rw-pool-item:last-of-type { border-bottom: none; }
+  .rw-icon-btn { background: none; border: none; color: var(--text-dim); font-size: 14px; cursor: pointer; padding: 4px; opacity: 0.6; flex-shrink: 0; }
+  .rw-mature { font-size: 11px; color: #7dd4a8; flex-shrink: 0; }
+  .reward-draw-card { position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.9); width: calc(100% - 48px); max-width: 340px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px 22px; z-index: 301; text-align: center; opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.32,0.72,0,1); max-height: 88dvh; overflow-y: auto; }
+  .reward-draw-card.visible { opacity: 1; transform: translate(-50%,-50%) scale(1); pointer-events: auto; }
+  .reward-result-box { font-size: 15px; color: var(--text); line-height: 1.8; background: rgba(232,201,122,0.06); border: 1px solid rgba(232,201,122,0.2); border-radius: 12px; padding: 16px; }
+  .reward-fulfill-item { display: block; width: 100%; text-align: left; margin-top: 8px; padding: 12px 14px; border: 1px solid rgba(125,212,168,0.3); border-radius: 10px; background: rgba(125,212,168,0.06); color: var(--text); font-family: 'Noto Serif TC', serif; font-size: 14px; cursor: pointer; }
+  .reward-spin { font-size: 46px; display: inline-block; animation: rwspin 0.7s ease-in-out; }
+  @keyframes rwspin { 0% { transform: rotate(0) scale(0.6); } 100% { transform: rotate(720deg) scale(1); } }
 </style>
 </head>
 <body>
 <div class="app">
-  <header id="mainHeader">
+  <header id="mainHeader" style="position:relative;">
     <div class="date-label" id="dateLabel"></div>
     <h1>我很棒了 ✨</h1>
     <div class="page-subtitle" id="pageSubtitle"></div>
+    <button class="reward-entry-btn" onclick="openRewardPage()">🎁 獎勵</button>
   </header>
   <div class="tabs" id="dayTabs" style="display:none">
     <button class="tab morning active" id="tabMorning" onclick="switchDayTab('morning')">🌞 早上</button>
@@ -285,6 +303,7 @@
   <div class="section" id="logSection"><div id="logContent"></div></div>
   <div class="section" id="weekSection"><div id="weekContent"></div></div>
   <div class="section" id="habitHistorySection"><div id="habitHistoryContent"></div></div>
+  <div class="section" id="rewardSection"><div id="rewardContent"></div></div>
 </div>
 
 <nav class="nav">
@@ -315,6 +334,9 @@
   <div id="datePickerCal"></div>
   <div class="hint" style="margin-top:4px;">點任一天即可編輯那天的紀錄 ✍️</div>
 </div>
+
+<div class="overlay" id="rewardDrawOverlay" style="z-index:300;" onclick="closeRewardDraw()"></div>
+<div class="reward-draw-card" id="rewardDrawCard"></div>
 
 <script>
 const MOODS = [
@@ -370,6 +392,7 @@ function showToast(msg) {
 function showPage(page) {
   currentPage = page;
   document.getElementById('habitHistorySection').classList.remove('visible');
+  document.getElementById('rewardSection').classList.remove('visible');
   document.getElementById('mainHeader').style.display = '';
   ['today','habit','log','week'].forEach(p => document.getElementById(p+'Section').classList.toggle('visible', p===page));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -536,6 +559,7 @@ function saveNight() {
   saveData('day_'+today, { ...existing, done:selectedDone, bonusDone:selectedBonusDone||0, mood:selectedMood, gratitude, reflection, closingNote:closingNote||'', nightTime:new Date().toISOString() });
   showToast('🌙 今日結算完成，好好休息！');
   renderNight();
+  setTimeout(() => maybeOfferReward(today), 350);
 }
 
 function resetNight() {
@@ -606,6 +630,7 @@ function saveEditNight() {
   const existing=loadData('day_'+editingKey)||{};
   saveData('day_'+editingKey, {...existing, done:editSelectedDone, bonusDone:editSelectedBonusDone||0, mood:editSelectedMood, gratitude, reflection, closingNote:closingNote||'', nightTime:existing.nightTime||new Date().toISOString()});
   showToast('🌙 晚上已更新！'); renderSheetNight(editingKey);
+  const rk = editingKey; setTimeout(() => maybeOfferReward(rk), 350);
 }
 
 // ── Log ──
@@ -1247,6 +1272,345 @@ function toggleHabitDayCheck(habitId, dateKey) {
   saveHabitLog(dateKey, log);
   renderHabitDayEditSheet(dateKey);
   if (dateKey === getTodayKey()) { renderNightHabits(); renderHabit(); }
+}
+
+// ════════ 獎勵系統 ════════
+const REWARD_DEFAULTS = { weights: { quote:45, intangible:37, challenge:10, spend:8 }, spendCap:1000, coolingDays:14, excludeN:5 };
+const REWARD_TYPE_LABEL = { quote:'名言佳句', intangible:'無形獎勵', challenge:'挑戰獎勵', spend:'奢侈額度' };
+const REWARD_TYPE_EMOJI = { quote:'💬', intangible:'🌿', challenge:'🚀', spend:'💸' };
+const DEFAULT_REWARD_POOL = {
+  quote: [
+    '你不需要很厲害才開始，但要開始才會很厲害。',
+    '今天的你，已經比昨天多撐了一天。',
+    '慢慢來，比較快。',
+    '能完成，就是一種溫柔的勝利。',
+    '你值得為自己驕傲。'
+  ],
+  intangible: [
+    '明天給自己多睡 30 分鐘，不設鬧鐘。',
+    '看一集想看的影集，不要有罪惡感。',
+    '泡一杯好喝的，坐下來什麼都不做 10 分鐘。',
+    '今天可以對自己說：我做得很好。'
+  ],
+  challenge: [
+    '報名你看很久的那堂課，現在就去 ✨',
+    '傳訊息給那個你一直想聯絡的人。',
+    '把那件拖很久的小事，今天就做掉它。'
+  ]
+};
+
+function rid() { return 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function getRewardSettings() {
+  const s = loadData('reward_settings') || {};
+  return { ...REWARD_DEFAULTS, ...s, weights: { ...REWARD_DEFAULTS.weights, ...(s.weights||{}) } };
+}
+function getRewardPool() {
+  let p = loadData('reward_pool');
+  if (!p) {
+    p = {
+      quote: DEFAULT_REWARD_POOL.quote.map(t=>({id:rid(),text:t})),
+      intangible: DEFAULT_REWARD_POOL.intangible.map(t=>({id:rid(),text:t})),
+      challenge: DEFAULT_REWARD_POOL.challenge.map(t=>({id:rid(),text:t}))
+    };
+    saveData('reward_pool', p);
+  }
+  if (!p.quote) p.quote = [];
+  if (!p.intangible) p.intangible = [];
+  if (!p.challenge) p.challenge = [];
+  return p;
+}
+function saveRewardPool(p) { saveData('reward_pool', p); }
+function getRewardHistory() { return loadData('reward_history') || []; }
+function getWishlist() { return loadData('wishlist') || []; }
+function saveWishlist(w) { saveData('wishlist', w); }
+function daysSince(dateKey) {
+  if (!dateKey) return 0;
+  const [y,m,dd] = dateKey.split('-').map(Number);
+  const a = new Date(y, m-1, dd);
+  const t = getTodayKey().split('-').map(Number);
+  const b = new Date(t[0], t[1]-1, t[2]);
+  return Math.max(0, Math.round((b - a) / 86400000));
+}
+
+function weightedPick(weights) {
+  const entries = Object.entries(weights).filter(([,w]) => w > 0);
+  const total = entries.reduce((s,[,w]) => s+w, 0);
+  let r = Math.random() * total;
+  for (const [k,w] of entries) { if (r < w) return k; r -= w; }
+  return entries[entries.length-1][0];
+}
+
+function drawReward(dayKey) {
+  const s = getRewardSettings();
+  const type = weightedPick(s.weights);
+  let content = '', amount = null;
+  if (type === 'spend') {
+    amount = Math.floor(Math.random() * (s.spendCap + 1));
+    content = '這次可以奢侈一下，額度 NT$' + amount;
+  } else {
+    const pool = getRewardPool()[type] || [];
+    const recentTexts = getRewardHistory().filter(h=>h.type===type).slice(-s.excludeN).map(h=>h.content);
+    let cand = pool.filter(p => !recentTexts.includes(p.text));
+    if (cand.length === 0) cand = pool;
+    content = cand.length ? cand[Math.floor(Math.random()*cand.length)].text : '（這個獎勵池還沒有內容，去獎勵頁新增一些吧）';
+  }
+  const hist = getRewardHistory();
+  hist.push({ date: dayKey, type, content, amount, drawnAt: getTodayKey() });
+  saveData('reward_history', hist);
+  saveData('reward_drawn_' + dayKey, true);
+  return { type, content, amount };
+}
+
+// ── 抽獎彈窗 ──
+let rewardDayKey = null;
+function maybeOfferReward(dayKey) {
+  const d = loadData('day_' + dayKey);
+  if (!d || d.done !== 3) return;
+  if (loadData('reward_drawn_' + dayKey)) return;
+  offerRewardFor(dayKey);
+}
+function offerRewardFor(dayKey) {
+  rewardDayKey = dayKey;
+  const card = document.getElementById('rewardDrawCard');
+  card.innerHTML = `
+    <div style="font-size:40px;margin-bottom:10px;">🎁</div>
+    <div style="font-size:18px;color:var(--text);margin-bottom:6px;">3 項任務全完成！</div>
+    <div style="font-size:13px;color:var(--text-mid);line-height:1.7;margin-bottom:20px;">${formatDateLabel(dayKey)}<br>抽一個專屬於這天的小獎勵 ✨</div>
+    <button class="btn btn-morning" style="margin:0;" onclick="doDraw()">抽獎 🎲</button>
+    <button class="ai-redo" style="margin-top:14px;" onclick="closeRewardDraw()">下次再說</button>`;
+  document.getElementById('rewardDrawOverlay').classList.add('visible');
+  card.classList.add('visible');
+}
+function doDraw() {
+  if (!rewardDayKey) return;
+  const card = document.getElementById('rewardDrawCard');
+  card.innerHTML = `<div class="reward-spin">🎲</div><div style="font-size:14px;color:var(--text-dim);margin-top:14px;">抽獎中…</div>`;
+  const dk = rewardDayKey;
+  setTimeout(() => { renderDrawResult(drawReward(dk)); }, 700);
+}
+function renderDrawResult(res) {
+  const card = document.getElementById('rewardDrawCard');
+  const extra = res.type === 'spend' ? renderSpendFulfill(res.amount) : '';
+  card.innerHTML = `
+    <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:0.1em;color:var(--text-dim);text-transform:uppercase;margin-bottom:10px;">中獎類型</div>
+    <div style="font-size:30px;margin-bottom:6px;">${REWARD_TYPE_EMOJI[res.type]}</div>
+    <div style="font-size:15px;color:var(--morning);margin-bottom:16px;">${REWARD_TYPE_LABEL[res.type]}</div>
+    <div class="reward-result-box">${escapeHtml(res.content)}</div>
+    ${extra}
+    <button class="btn btn-morning" style="margin-top:18px;" onclick="closeRewardDraw()">收下 ✨</button>`;
+}
+function renderSpendFulfill(amount) {
+  const s = getRewardSettings();
+  const wl = getWishlist().filter(w => !w.fulfilledAt && daysSince(w.addedAt) >= s.coolingDays && w.price <= amount);
+  if (wl.length === 0) {
+    return `<div style="font-size:12px;color:var(--text-dim);line-height:1.7;margin-top:14px;padding:10px;background:var(--surface2);border-radius:10px;">目前沒有符合資格的願望（需加入滿 ${s.coolingDays} 天、且金額在額度內）。<br>這次額度不保留，但你已經值得開心 🙂</div>`;
+  }
+  return `<div style="font-size:11px;color:var(--text-dim);margin-top:16px;margin-bottom:8px;text-align:left;">可用這次額度兌現一個（點下去）：</div>` +
+    wl.map(w => `<button class="reward-fulfill-item" onclick="fulfillFromDraw('${w.id}',${amount})">${escapeHtml(w.name)} · NT$${w.price}</button>`).join('');
+}
+function fulfillFromDraw(itemId, amount) {
+  const wl = getWishlist();
+  const it = wl.find(x => x.id === itemId);
+  if (!it) return;
+  it.fulfilledAt = getTodayKey();
+  it.fulfilledAmount = it.price;
+  saveWishlist(wl);
+  const card = document.getElementById('rewardDrawCard');
+  card.innerHTML = `
+    <div style="font-size:40px;margin-bottom:10px;">🛍️</div>
+    <div style="font-size:16px;color:var(--text);margin-bottom:8px;">已兌現：${escapeHtml(it.name)}</div>
+    <div style="font-size:13px;color:var(--text-mid);line-height:1.7;margin-bottom:18px;">這是你想了 ${daysSince(it.addedAt)} 天的東西，<br>不是衝動，好好享受它 ✨</div>
+    <button class="btn btn-morning" style="margin:0;" onclick="closeRewardDraw()">完成</button>`;
+}
+function closeRewardDraw() {
+  document.getElementById('rewardDrawOverlay').classList.remove('visible');
+  document.getElementById('rewardDrawCard').classList.remove('visible');
+  rewardDayKey = null;
+  if (currentPage === 'today') renderToday();
+  const rs = document.getElementById('rewardSection');
+  if (rs && rs.classList.contains('visible')) renderReward();
+}
+
+// ── 獎勵頁 ──
+let rewardTab = 'history';
+let poolEdit = { quote:null, intangible:null, challenge:null };
+function openRewardPage() {
+  ['today','habit','log','week'].forEach(p => document.getElementById(p+'Section').classList.remove('visible'));
+  document.getElementById('habitHistorySection').classList.remove('visible');
+  document.getElementById('rewardSection').classList.add('visible');
+  document.getElementById('mainHeader').style.display = 'none';
+  document.getElementById('dayTabs').style.display = 'none';
+  window.scrollTo(0, 0);
+  rewardTab = 'history';
+  poolEdit = { quote:null, intangible:null, challenge:null };
+  renderReward();
+}
+function closeRewardPage() {
+  document.getElementById('rewardSection').classList.remove('visible');
+  document.getElementById('mainHeader').style.display = '';
+  showPage(currentPage);
+}
+function switchRewardTab(t) { rewardTab = t; renderReward(); }
+
+function renderReward() {
+  const el = document.getElementById('rewardContent');
+  const tabs = [['history','最近中獎'],['pool','獎品池'],['wishlist','願望清單'],['stats','覺察']];
+  const tabsHtml = `<div class="rw-tabs">${tabs.map(([k,l])=>`<button class="rw-tab${rewardTab===k?' active':''}" onclick="switchRewardTab('${k}')">${l}</button>`).join('')}</div>`;
+  let body = '';
+  if (rewardTab === 'history') body = renderRewardHistory();
+  else if (rewardTab === 'pool') body = renderRewardPool();
+  else if (rewardTab === 'wishlist') body = renderWishlist();
+  else if (rewardTab === 'stats') body = renderRewardStats();
+  el.innerHTML = `
+    <header style="padding:32px 0 12px;">
+      <button class="hp-back" onclick="closeRewardPage()">‹ 返回</button>
+      <h1 style="font-size:22px;">獎勵 🎁</h1>
+    </header>
+    ${tabsHtml}
+    ${body}`;
+}
+
+function renderRewardHistory() {
+  const hist = getRewardHistory().slice().reverse();
+  if (!hist.length) return `<div class="empty-log">還沒有中獎紀錄<br><span style="font-size:12px;">當某天 3 項底線任務全完成、做完晚上總結後，就能抽獎 🎲</span></div>`;
+  return hist.map(h => `
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:18px;">${REWARD_TYPE_EMOJI[h.type]||'🎁'}</span>
+        <span style="font-size:13px;color:var(--morning);">${REWARD_TYPE_LABEL[h.type]||h.type}</span>
+        <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);">${h.date}</span>
+      </div>
+      <div style="font-size:14px;color:var(--text-mid);line-height:1.6;">${escapeHtml(h.content)}</div>
+    </div>`).join('');
+}
+
+function renderRewardPool() {
+  const pool = getRewardPool();
+  const types = [['quote','💬 名言佳句'],['intangible','🌿 無形獎勵'],['challenge','🚀 挑戰獎勵']];
+  const hint = `<div class="hint" style="margin-bottom:14px;">看到喜歡的句子、想到好點子，隨時加進來。抽獎會從這些池子裡抽 🎲（金錢類 spend 不需池子，金額隨機產生）</div>`;
+  return hint + types.map(([k,label]) => {
+    const items = pool[k] || [];
+    const editing = poolEdit[k] ? items.find(i => i.id === poolEdit[k]) : null;
+    const listHtml = items.length
+      ? items.map(it => `
+        <div class="rw-pool-item">
+          <span style="flex:1;font-size:13px;color:var(--text-mid);line-height:1.5;">${escapeHtml(it.text)}</span>
+          <button class="rw-icon-btn" onclick="editPoolItem('${k}','${it.id}')">✏️</button>
+          <button class="rw-icon-btn" onclick="deletePoolItem('${k}','${it.id}')">🗑</button>
+        </div>`).join('')
+      : `<div style="font-size:12px;color:var(--text-dim);opacity:0.6;padding:4px 0;">還沒有項目</div>`;
+    return `<div class="card" style="margin-bottom:12px;">
+      <div class="card-label">${label}（${items.length}）</div>
+      ${listHtml}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <input class="task-input" id="poolInput_${k}" type="text" placeholder="${editing?'修改內容…':'新增一則…'}" maxlength="80" value="${editing?escapeHtml(editing.text):''}">
+        <button class="btn btn-habit" style="width:auto;margin:0;padding:0 16px;white-space:nowrap;" onclick="savePoolItem('${k}')">${editing?'更新':'＋'}</button>
+      </div>
+      ${editing?`<button class="ai-redo" style="margin-top:8px;" onclick="cancelPoolEdit('${k}')">取消編輯</button>`:''}
+    </div>`;
+  }).join('');
+}
+function savePoolItem(type) {
+  const inp = document.getElementById('poolInput_' + type);
+  const text = inp.value.trim();
+  if (!text) { showToast('先輸入內容 🙂'); return; }
+  const pool = getRewardPool();
+  if (poolEdit[type]) {
+    const it = pool[type].find(i => i.id === poolEdit[type]);
+    if (it) it.text = text;
+    poolEdit[type] = null;
+  } else {
+    pool[type].push({ id: rid(), text });
+  }
+  saveRewardPool(pool);
+  renderReward();
+}
+function editPoolItem(type, id) { poolEdit[type] = id; renderReward(); }
+function cancelPoolEdit(type) { poolEdit[type] = null; renderReward(); }
+function deletePoolItem(type, id) {
+  const pool = getRewardPool();
+  pool[type] = pool[type].filter(i => i.id !== id);
+  if (poolEdit[type] === id) poolEdit[type] = null;
+  saveRewardPool(pool);
+  renderReward();
+}
+
+function renderWishlist() {
+  const s = getRewardSettings();
+  const wl = getWishlist();
+  const active = wl.filter(w => !w.fulfilledAt).sort((a,b) => a.addedAt < b.addedAt ? -1 : 1);
+  const done = wl.filter(w => w.fulfilledAt);
+  const hint = `<div class="hint" style="margin-bottom:14px;">這份清單是「往前看」的：擋住衝動，不是記帳。加入後要滿 <em>${s.coolingDays} 天</em> 才成熟，之後抽中「奢侈額度」時才能拿來兌現。大部分衝動，兩週內會自己消失 🙂</div>`;
+  const addForm = `
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-label">＋ 加入想買的東西</div>
+      <div class="task-row"><input class="task-input" id="wishName" type="text" placeholder="想買什麼…" maxlength="40"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+        <span style="font-size:13px;color:var(--text-dim);">NT$</span>
+        <input class="task-input" id="wishPrice" type="number" min="0" placeholder="預估金額" style="flex:1;">
+        <button class="btn btn-habit" style="width:auto;margin:0;padding:0 16px;" onclick="addWish()">加入</button>
+      </div>
+    </div>`;
+  const activeHtml = active.length ? active.map(w => {
+    const d = daysSince(w.addedAt);
+    const mature = d >= s.coolingDays;
+    const left = s.coolingDays - d;
+    const pct = Math.min(100, Math.round(d / s.coolingDays * 100));
+    return `<div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-size:15px;color:var(--text);">${escapeHtml(w.name)}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text-dim);margin-top:2px;">NT$${w.price} · 加入 ${d} 天</div>
+        </div>
+        ${mature ? `<span class="rw-mature">✓ 已成熟</span>` : `<span style="font-size:11px;color:var(--text-dim);">還差 ${left} 天</span>`}
+        <button class="rw-icon-btn" onclick="deleteWish('${w.id}')">🗑</button>
+      </div>
+      <div class="habit-progress-bar" style="margin-top:10px;"><div class="habit-progress-fill" style="width:${pct}%;background:${mature?'#7dd4a8':'var(--morning)'};"></div></div>
+    </div>`;
+  }).join('') : `<div style="font-size:13px;color:var(--text-dim);opacity:0.7;padding:8px 0 16px;text-align:center;">清單是空的，把想買的東西放進來放著吧。</div>`;
+  const doneHtml = done.length
+    ? `<div class="week-section-label">已兌現</div>` + done.map(w => `<div class="card" style="margin-bottom:8px;opacity:0.7;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;color:var(--text-mid);flex:1;">🛍️ ${escapeHtml(w.name)} · NT$${w.price}</span><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);">${w.fulfilledAt}</span></div></div>`).join('')
+    : '';
+  return hint + addForm + activeHtml + doneHtml;
+}
+function addWish() {
+  const name = document.getElementById('wishName').value.trim();
+  const price = parseInt(document.getElementById('wishPrice').value) || 0;
+  if (!name) { showToast('先填想買什麼 🙂'); return; }
+  const wl = getWishlist();
+  wl.push({ id: rid(), name, price, addedAt: getTodayKey(), fulfilledAt: null });
+  saveWishlist(wl);
+  showToast('已加入願望清單 ✨');
+  renderReward();
+}
+function deleteWish(id) {
+  const wl = getWishlist().filter(w => w.id !== id);
+  saveWishlist(wl);
+  renderReward();
+}
+
+function renderRewardStats() {
+  const month = getTodayKey().slice(0,7);
+  const hist = getRewardHistory();
+  const totalDraws = hist.filter(h => h.date.slice(0,7) === month).length;
+  const spendDraws = hist.filter(h => h.type === 'spend' && h.date.slice(0,7) === month).length;
+  const wl = getWishlist();
+  const fulfilledThisMonth = wl.filter(w => w.fulfilledAt && w.fulfilledAt.slice(0,7) === month);
+  const fulfilledCount = fulfilledThisMonth.length;
+  const fulfilledTotal = fulfilledThisMonth.reduce((s,w) => s + (w.fulfilledAmount || w.price || 0), 0);
+  const warn = fulfilledCount >= 3
+    ? `<div class="hint" style="border:1px solid rgba(232,201,122,0.3);background:rgba(232,201,122,0.06);color:var(--text-mid);">這個月已經兌現 ${fulfilledCount} 次了。沒有要責備你 🙂 只是讓你看見——如果覺得有點頻繁，可以把「想要」再放久一點，或之後把金錢類權重調低。</div>`
+    : '';
+  return `<div class="hint" style="margin-bottom:14px;">這裡只是默默讓你「看見」自己。看見，就是最溫柔的剎車。</div>
+    ${warn}
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--morning);margin-bottom:3px;">${totalDraws}</div><div class="card-label" style="margin:0;">本月抽獎</div></div>
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--bonus);margin-bottom:3px;">${spendDraws}</div><div class="card-label" style="margin:0;">中奢侈額度</div></div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--night);margin-bottom:3px;">${fulfilledCount}</div><div class="card-label" style="margin:0;">本月兌現次數</div></div>
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--night);margin-bottom:3px;">$${fulfilledTotal}</div><div class="card-label" style="margin:0;">兌現總金額</div></div>
+    </div>`;
 }
 
 // ── Init ──
