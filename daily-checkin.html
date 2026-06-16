@@ -1275,9 +1275,9 @@ function toggleHabitDayCheck(habitId, dateKey) {
 }
 
 // ════════ 獎勵系統 ════════
-const REWARD_DEFAULTS = { weights: { quote:45, intangible:37, challenge:10, spend:8 }, spendCap:1000, coolingDays:14, excludeN:5 };
-const REWARD_TYPE_LABEL = { quote:'名言佳句', intangible:'無形獎勵', challenge:'挑戰獎勵', spend:'奢侈額度' };
-const REWARD_TYPE_EMOJI = { quote:'💬', intangible:'🌿', challenge:'🚀', spend:'💸' };
+const REWARD_DEFAULTS = { weights: { quote:45, intangible:37, challenge:10, money:8 }, moneyDenoms: { '100':50, '200':25, '300':14, '500':8, '1000':3 }, coolingDays:14, excludeN:5 };
+const REWARD_TYPE_LABEL = { quote:'名言佳句', intangible:'無形獎勵', challenge:'挑戰獎勵', money:'金錢額度' };
+const REWARD_TYPE_EMOJI = { quote:'💬', intangible:'🌿', challenge:'🚀', money:'💰' };
 const DEFAULT_REWARD_POOL = {
   quote: [
     '你不需要很厲害才開始，但要開始才會很厲害。',
@@ -1302,7 +1302,7 @@ const DEFAULT_REWARD_POOL = {
 function rid() { return 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function getRewardSettings() {
   const s = loadData('reward_settings') || {};
-  return { ...REWARD_DEFAULTS, ...s, weights: { ...REWARD_DEFAULTS.weights, ...(s.weights||{}) } };
+  return { ...REWARD_DEFAULTS, ...s, weights: { ...REWARD_DEFAULTS.weights, ...(s.weights||{}) }, moneyDenoms: { ...REWARD_DEFAULTS.moneyDenoms, ...(s.moneyDenoms||{}) } };
 }
 function getRewardPool() {
   let p = loadData('reward_pool');
@@ -1323,6 +1323,8 @@ function saveRewardPool(p) { saveData('reward_pool', p); }
 function getRewardHistory() { return loadData('reward_history') || []; }
 function getWishlist() { return loadData('wishlist') || []; }
 function saveWishlist(w) { saveData('wishlist', w); }
+function getSpendBalance() { return loadData('spend_balance') || 0; }
+function setSpendBalance(v) { saveData('spend_balance', v); }
 function daysSince(dateKey) {
   if (!dateKey) return 0;
   const [y,m,dd] = dateKey.split('-').map(Number);
@@ -1344,9 +1346,10 @@ function drawReward(dayKey) {
   const s = getRewardSettings();
   const type = weightedPick(s.weights);
   let content = '', amount = null;
-  if (type === 'spend') {
-    amount = Math.floor(Math.random() * (s.spendCap + 1));
-    content = '這次可以奢侈一下，額度 NT$' + amount;
+  if (type === 'money') {
+    amount = parseInt(weightedPick(s.moneyDenoms), 10);
+    setSpendBalance(getSpendBalance() + amount);
+    content = '抽中金錢額度 NT$' + amount + '，已存進可花額度';
   } else {
     const pool = getRewardPool()[type] || [];
     const recentTexts = getRewardHistory().filter(h=>h.type===type).slice(-s.excludeN).map(h=>h.content);
@@ -1390,7 +1393,7 @@ function doDraw() {
 }
 function renderDrawResult(res) {
   const card = document.getElementById('rewardDrawCard');
-  const extra = res.type === 'spend' ? renderSpendFulfill(res.amount) : '';
+  const extra = res.type === 'money' ? renderMoneyExtra(res.amount) : '';
   card.innerHTML = `
     <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:0.1em;color:var(--text-dim);text-transform:uppercase;margin-bottom:10px;">中獎類型</div>
     <div style="font-size:30px;margin-bottom:6px;">${REWARD_TYPE_EMOJI[res.type]}</div>
@@ -1399,28 +1402,12 @@ function renderDrawResult(res) {
     ${extra}
     <button class="btn btn-morning" style="margin-top:18px;" onclick="closeRewardDraw()">收下 ✨</button>`;
 }
-function renderSpendFulfill(amount) {
-  const s = getRewardSettings();
-  const wl = getWishlist().filter(w => !w.fulfilledAt && daysSince(w.addedAt) >= s.coolingDays && w.price <= amount);
-  if (wl.length === 0) {
-    return `<div style="font-size:12px;color:var(--text-dim);line-height:1.7;margin-top:14px;padding:10px;background:var(--surface2);border-radius:10px;">目前沒有符合資格的願望（需加入滿 ${s.coolingDays} 天、且金額在額度內）。<br>這次額度不保留，但你已經值得開心 🙂</div>`;
-  }
-  return `<div style="font-size:11px;color:var(--text-dim);margin-top:16px;margin-bottom:8px;text-align:left;">可用這次額度兌現一個（點下去）：</div>` +
-    wl.map(w => `<button class="reward-fulfill-item" onclick="fulfillFromDraw('${w.id}',${amount})">${escapeHtml(w.name)} · NT$${w.price}</button>`).join('');
-}
-function fulfillFromDraw(itemId, amount) {
-  const wl = getWishlist();
-  const it = wl.find(x => x.id === itemId);
-  if (!it) return;
-  it.fulfilledAt = getTodayKey();
-  it.fulfilledAmount = it.price;
-  saveWishlist(wl);
-  const card = document.getElementById('rewardDrawCard');
-  card.innerHTML = `
-    <div style="font-size:40px;margin-bottom:10px;">🛍️</div>
-    <div style="font-size:16px;color:var(--text);margin-bottom:8px;">已兌現：${escapeHtml(it.name)}</div>
-    <div style="font-size:13px;color:var(--text-mid);line-height:1.7;margin-bottom:18px;">這是你想了 ${daysSince(it.addedAt)} 天的東西，<br>不是衝動，好好享受它 ✨</div>
-    <button class="btn btn-morning" style="margin:0;" onclick="closeRewardDraw()">完成</button>`;
+function renderMoneyExtra(amount) {
+  const bal = getSpendBalance();
+  return `<div style="font-size:13px;color:var(--text-mid);line-height:1.7;margin-top:14px;padding:12px;background:rgba(232,201,122,0.06);border:1px solid rgba(232,201,122,0.2);border-radius:10px;">
+    目前可花額度餘額 <span style="font-family:'DM Mono',monospace;color:var(--morning);font-size:17px;">NT$${bal}</span><br>
+    <span style="font-size:12px;color:var(--text-dim);">到「願望清單」買已熟成（滿冷靜期）的項目時可以扣抵。買不到就一直存著，不會消失 🙂</span>
+  </div>`;
 }
 function closeRewardDraw() {
   document.getElementById('rewardDrawOverlay').classList.remove('visible');
@@ -1443,6 +1430,7 @@ function openRewardPage() {
   window.scrollTo(0, 0);
   rewardTab = 'history';
   poolEdit = { quote:null, intangible:null, challenge:null };
+  fulfillingId = null;
   renderReward();
 }
 function closeRewardPage() {
@@ -1450,7 +1438,7 @@ function closeRewardPage() {
   document.getElementById('mainHeader').style.display = '';
   showPage(currentPage);
 }
-function switchRewardTab(t) { rewardTab = t; renderReward(); }
+function switchRewardTab(t) { rewardTab = t; fulfillingId = null; poolEdit = { quote:null, intangible:null, challenge:null }; renderReward(); }
 
 function renderReward() {
   const el = document.getElementById('rewardContent');
@@ -1487,7 +1475,7 @@ function renderRewardHistory() {
 function renderRewardPool() {
   const pool = getRewardPool();
   const types = [['quote','💬 名言佳句'],['intangible','🌿 無形獎勵'],['challenge','🚀 挑戰獎勵']];
-  const hint = `<div class="hint" style="margin-bottom:14px;">看到喜歡的句子、想到好點子，隨時加進來。抽獎會從這些池子裡抽 🎲（金錢類 spend 不需池子，金額隨機產生）</div>`;
+  const hint = `<div class="hint" style="margin-bottom:14px;">看到喜歡的句子、想到好點子，隨時加進來。抽獎會從這些池子裡抽 🎲（金錢額度不需池子，抽中時依面額隨機產生）</div>`;
   return hint + types.map(([k,label]) => {
     const items = pool[k] || [];
     const editing = poolEdit[k] ? items.find(i => i.id === poolEdit[k]) : null;
@@ -1535,12 +1523,19 @@ function deletePoolItem(type, id) {
   renderReward();
 }
 
+let fulfillingId = null;
 function renderWishlist() {
   const s = getRewardSettings();
   const wl = getWishlist();
+  const bal = getSpendBalance();
   const active = wl.filter(w => !w.fulfilledAt).sort((a,b) => a.addedAt < b.addedAt ? -1 : 1);
-  const done = wl.filter(w => w.fulfilledAt);
-  const hint = `<div class="hint" style="margin-bottom:14px;">這份清單是「往前看」的：擋住衝動，不是記帳。加入後要滿 <em>${s.coolingDays} 天</em> 才成熟，之後抽中「奢侈額度」時才能拿來兌現。大部分衝動，兩週內會自己消失 🙂</div>`;
+  const done = wl.filter(w => w.fulfilledAt).sort((a,b) => a.fulfilledAt < b.fulfilledAt ? 1 : -1);
+  const balCard = `<div class="card" style="margin-bottom:12px;text-align:center;border-color:rgba(232,201,122,0.25);background:rgba(232,201,122,0.05);">
+      <div class="card-label" style="color:rgba(232,201,122,0.6);">💰 目前可花額度</div>
+      <div style="font-family:'DM Mono',monospace;font-size:30px;color:var(--morning);">NT$${bal}</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">抽中金錢額度會累加在這，只能買下面已熟成的願望</div>
+    </div>`;
+  const hint = `<div class="hint" style="margin-bottom:14px;">這份清單是「往前看」的：擋住衝動，不是記帳。加入後要滿 <em>${s.coolingDays} 天</em> 才成熟，成熟後才能用可花額度兌現。大部分衝動，兩週內會自己消失 🙂</div>`;
   const addForm = `
     <div class="card" style="margin-bottom:12px;">
       <div class="card-label">＋ 加入想買的東西</div>
@@ -1556,6 +1551,25 @@ function renderWishlist() {
     const mature = d >= s.coolingDays;
     const left = s.coolingDays - d;
     const pct = Math.min(100, Math.round(d / s.coolingDays * 100));
+    const covered = bal >= w.price;
+    let actionHtml = '';
+    if (fulfillingId === w.id) {
+      if (covered) {
+        actionHtml = `<div style="margin-top:10px;display:flex;gap:8px;">
+          <button class="btn btn-habit" style="margin:0;flex:1;padding:10px;" onclick="doFulfill('${w.id}',${w.price})">用 NT$${w.price} 額度兌現</button>
+          <button class="btn" style="margin:0;width:auto;padding:10px 14px;background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);" onclick="cancelFulfill()">取消</button>
+        </div>`;
+      } else {
+        const short = w.price - bal;
+        actionHtml = `<div style="margin-top:10px;font-size:12px;color:var(--text-dim);line-height:1.6;">餘額 NT$${bal}，還差 NT$${short}。要怎麼做？</div>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;">
+            <button class="btn btn-habit" style="margin:0;padding:10px;" onclick="doFulfill('${w.id}',${bal})">先扣 NT$${bal}、剩下 NT$${short} 自付</button>
+            <button class="btn" style="margin:0;padding:10px;background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);" onclick="cancelFulfill()">先不買，繼續累積</button>
+          </div>`;
+      }
+    } else if (mature) {
+      actionHtml = `<button class="btn btn-habit" style="margin-top:10px;padding:10px;" onclick="startFulfill('${w.id}')">兌現${covered ? '' : '（額度不足，可部分扣抵）'}</button>`;
+    }
     return `<div class="card" style="margin-bottom:10px;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="flex:1;">
@@ -1566,12 +1580,39 @@ function renderWishlist() {
         <button class="rw-icon-btn" onclick="deleteWish('${w.id}')">🗑</button>
       </div>
       <div class="habit-progress-bar" style="margin-top:10px;"><div class="habit-progress-fill" style="width:${pct}%;background:${mature?'#7dd4a8':'var(--morning)'};"></div></div>
+      ${actionHtml}
     </div>`;
   }).join('') : `<div style="font-size:13px;color:var(--text-dim);opacity:0.7;padding:8px 0 16px;text-align:center;">清單是空的，把想買的東西放進來放著吧。</div>`;
   const doneHtml = done.length
-    ? `<div class="week-section-label">已兌現</div>` + done.map(w => `<div class="card" style="margin-bottom:8px;opacity:0.7;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:14px;color:var(--text-mid);flex:1;">🛍️ ${escapeHtml(w.name)} · NT$${w.price}</span><span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);">${w.fulfilledAt}</span></div></div>`).join('')
+    ? `<div class="week-section-label">已兌現</div>` + done.map(w => {
+        const paid = w.paidFromBalance != null ? w.paidFromBalance : (w.fulfilledAmount != null ? w.fulfilledAmount : w.price);
+        const selfPay = w.price - paid;
+        return `<div class="card" style="margin-bottom:8px;opacity:0.75;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:14px;color:var(--text-mid);flex:1;">🛍️ ${escapeHtml(w.name)} · NT$${w.price}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);">${w.fulfilledAt}</span>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:4px;">用掉額度 NT$${paid}${selfPay > 0 ? `、自付 NT$${selfPay}` : ''}</div>
+        </div>`;
+      }).join('')
     : '';
-  return hint + addForm + activeHtml + doneHtml;
+  return balCard + hint + addForm + activeHtml + doneHtml;
+}
+function startFulfill(id) { fulfillingId = id; renderReward(); }
+function cancelFulfill() { fulfillingId = null; renderReward(); }
+function doFulfill(id, useAmount) {
+  const wl = getWishlist();
+  const it = wl.find(w => w.id === id);
+  if (!it) return;
+  const bal = getSpendBalance();
+  const use = Math.max(0, Math.min(useAmount, bal, it.price));
+  it.fulfilledAt = getTodayKey();
+  it.paidFromBalance = use;
+  setSpendBalance(bal - use);
+  saveWishlist(wl);
+  fulfillingId = null;
+  showToast('🛍️ 已兌現：' + it.name);
+  renderReward();
 }
 function addWish() {
   const name = document.getElementById('wishName').value.trim();
@@ -1592,24 +1633,30 @@ function deleteWish(id) {
 function renderRewardStats() {
   const month = getTodayKey().slice(0,7);
   const hist = getRewardHistory();
-  const totalDraws = hist.filter(h => h.date.slice(0,7) === month).length;
-  const spendDraws = hist.filter(h => h.type === 'spend' && h.date.slice(0,7) === month).length;
+  const bal = getSpendBalance();
+  const moneyDraws = hist.filter(h => h.type === 'money' && (h.date||'').slice(0,7) === month);
+  const moneyCount = moneyDraws.length;
+  const moneyTotal = moneyDraws.reduce((s,h) => s + (h.amount || 0), 0);
   const wl = getWishlist();
   const fulfilledThisMonth = wl.filter(w => w.fulfilledAt && w.fulfilledAt.slice(0,7) === month);
   const fulfilledCount = fulfilledThisMonth.length;
-  const fulfilledTotal = fulfilledThisMonth.reduce((s,w) => s + (w.fulfilledAmount || w.price || 0), 0);
-  const warn = fulfilledCount >= 3
-    ? `<div class="hint" style="border:1px solid rgba(232,201,122,0.3);background:rgba(232,201,122,0.06);color:var(--text-mid);">這個月已經兌現 ${fulfilledCount} 次了。沒有要責備你 🙂 只是讓你看見——如果覺得有點頻繁，可以把「想要」再放久一點，或之後把金錢類權重調低。</div>`
+  const fulfilledTotal = fulfilledThisMonth.reduce((s,w) => s + (w.paidFromBalance != null ? w.paidFromBalance : (w.fulfilledAmount || w.price || 0)), 0);
+  const warn = fulfilledTotal >= 2000
+    ? `<div class="hint" style="border:1px solid rgba(232,201,122,0.3);background:rgba(232,201,122,0.06);color:var(--text-mid);">這個月用額度兌現了 NT$${fulfilledTotal}。沒有要責備你 🙂 只是讓你看見——如果覺得有點多，可以把「想要」再放久一點，或之後把金額面額／冷靜期調整一下。</div>`
     : '';
   return `<div class="hint" style="margin-bottom:14px;">這裡只是默默讓你「看見」自己。看見，就是最溫柔的剎車。</div>
     ${warn}
+    <div class="card" style="margin-bottom:12px;text-align:center;border-color:rgba(232,201,122,0.25);background:rgba(232,201,122,0.05);">
+      <div class="card-label" style="color:rgba(232,201,122,0.6);">💰 目前可花額度餘額</div>
+      <div style="font-family:'DM Mono',monospace;font-size:30px;color:var(--morning);">NT$${bal}</div>
+    </div>
     <div style="display:flex;gap:10px;margin-bottom:12px;">
-      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--morning);margin-bottom:3px;">${totalDraws}</div><div class="card-label" style="margin:0;">本月抽獎</div></div>
-      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--bonus);margin-bottom:3px;">${spendDraws}</div><div class="card-label" style="margin:0;">中奢侈額度</div></div>
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--bonus);margin-bottom:3px;">${moneyCount}</div><div class="card-label" style="margin:0;">本月中金錢額度</div></div>
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--bonus);margin-bottom:3px;">$${moneyTotal}</div><div class="card-label" style="margin:0;">本月累積金額</div></div>
     </div>
     <div style="display:flex;gap:10px;">
       <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--night);margin-bottom:3px;">${fulfilledCount}</div><div class="card-label" style="margin:0;">本月兌現次數</div></div>
-      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--night);margin-bottom:3px;">$${fulfilledTotal}</div><div class="card-label" style="margin:0;">兌現總金額</div></div>
+      <div class="card" style="flex:1;text-align:center;margin-bottom:0;"><div style="font-family:'DM Mono',monospace;font-size:24px;color:var(--night);margin-bottom:3px;">$${fulfilledTotal}</div><div class="card-label" style="margin:0;">本月兌現金額</div></div>
     </div>`;
 }
 
