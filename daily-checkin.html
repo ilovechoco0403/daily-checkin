@@ -916,7 +916,16 @@ function renderHabit() {
       </div>`;
     }).join('');
 
+  const weekMet = habits.length > 0 && isWeekHabitGoalsMet(ws);
+  const weekClaimed = !!loadData('reward_week_drawn_' + ws);
+  const weeklyBanner = weekMet
+    ? (weekClaimed
+        ? `<div style="text-align:center;font-size:12px;color:var(--text-dim);margin-bottom:16px;">✓ 本週習慣全達標，週獎勵已抽 ✨</div>`
+        : `<button class="btn" style="margin-bottom:16px;background:rgba(232,201,122,0.12);border:1px solid rgba(232,201,122,0.4);color:var(--morning);" onclick="offerWeeklyReward('${ws}')">🎁 本週習慣全達標，抽週獎勵！</button>`)
+    : '';
+
   el.innerHTML = `
+    ${weeklyBanner}
     <div class="hint" style="margin-bottom:16px;">點格子可以補填或取消打卡 🌿</div>
     ${habitCards}
     <button class="btn btn-habit" onclick="openAddHabit()" style="margin-top:8px;">＋ 新增習慣</button>
@@ -931,6 +940,7 @@ function toggleHabitDay(habitId, dateKey) {
   saveHabitLog(dateKey, log);
   renderHabit();
   if (dateKey === getTodayKey()) renderNightHabits();
+  if (getWeekStart(dateKey) === getWeekStart(getTodayKey())) setTimeout(maybeOfferWeeklyReward, 300);
 }
 
 function deleteHabit(habitId) {
@@ -1065,6 +1075,7 @@ function toggleNightHabit(habitId) {
   if (!log[habitId]) delete log[habitId];
   saveHabitLog(today, log);
   renderNightHabits();
+  setTimeout(maybeOfferWeeklyReward, 300);
 }
 
 // ── 共用月曆 ──
@@ -1272,6 +1283,7 @@ function toggleHabitDayCheck(habitId, dateKey) {
   saveHabitLog(dateKey, log);
   renderHabitDayEditSheet(dateKey);
   if (dateKey === getTodayKey()) { renderNightHabits(); renderHabit(); }
+  if (getWeekStart(dateKey) === getWeekStart(getTodayKey())) setTimeout(maybeOfferWeeklyReward, 300);
 }
 
 // ════════ 獎勵系統 ════════
@@ -1342,7 +1354,7 @@ function weightedPick(weights) {
   return entries[entries.length-1][0];
 }
 
-function drawReward(dayKey) {
+function drawReward(historyDate, drawnKey, source) {
   const s = getRewardSettings();
   const type = weightedPick(s.weights);
   let content = '', amount = null;
@@ -1358,22 +1370,47 @@ function drawReward(dayKey) {
     content = cand.length ? cand[Math.floor(Math.random()*cand.length)].text : '（這個獎勵池還沒有內容，去獎勵頁新增一些吧）';
   }
   const hist = getRewardHistory();
-  hist.push({ date: dayKey, type, content, amount, drawnAt: getTodayKey() });
+  hist.push({ date: historyDate, type, content, amount, drawnAt: getTodayKey(), source: source || 'daily' });
   saveData('reward_history', hist);
-  saveData('reward_drawn_' + dayKey, true);
+  if (drawnKey) saveData(drawnKey, true);
   return { type, content, amount };
 }
 
 // ── 抽獎彈窗 ──
-let rewardDayKey = null;
+let pendingDraw = null;
+function addDaysKey(dateKey, n) {
+  const [y,m,d] = dateKey.split('-').map(Number);
+  const dt = new Date(y, m-1, d+n);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+}
+function getQualifyingHabits(weekStart) {
+  // 只看「週初(週一)就已存在」的習慣；中途新增的本週不列入要求
+  return getHabits().filter(h => !h.createdAt || h.createdAt <= weekStart);
+}
+function isWeekHabitGoalsMet(weekStart) {
+  const habits = getQualifyingHabits(weekStart);
+  if (!habits.length) return false;
+  return habits.every(h => {
+    const target = h.freqType === 'daily' ? 7 : h.freqCount;
+    return getHabitWeekCount(h.id, weekStart) >= target;
+  });
+}
 function maybeOfferReward(dayKey) {
   const d = loadData('day_' + dayKey);
   if (!d || d.done !== 3) return;
   if (loadData('reward_drawn_' + dayKey)) return;
   offerRewardFor(dayKey);
 }
+function maybeOfferWeeklyReward() {
+  if (document.getElementById('rewardDrawCard').classList.contains('visible')) return;
+  const ws = getWeekStart(getTodayKey());
+  if (loadData('reward_week_drawn_' + ws)) return;
+  if (!isWeekHabitGoalsMet(ws)) return;
+  offerWeeklyReward(ws);
+}
 function offerRewardFor(dayKey) {
-  rewardDayKey = dayKey;
+  if (document.getElementById('rewardDrawCard').classList.contains('visible')) return;
+  pendingDraw = { historyDate: dayKey, drawnKey: 'reward_drawn_' + dayKey, source: 'daily' };
   const card = document.getElementById('rewardDrawCard');
   card.innerHTML = `
     <div style="font-size:40px;margin-bottom:10px;">🎁</div>
@@ -1384,12 +1421,27 @@ function offerRewardFor(dayKey) {
   document.getElementById('rewardDrawOverlay').classList.add('visible');
   card.classList.add('visible');
 }
+function offerWeeklyReward(weekStart) {
+  if (document.getElementById('rewardDrawCard').classList.contains('visible')) return;
+  if (loadData('reward_week_drawn_' + weekStart)) { showToast('本週的週獎勵已經抽過囉 🙂'); return; }
+  const sun = addDaysKey(weekStart, 6);
+  pendingDraw = { historyDate: sun, drawnKey: 'reward_week_drawn_' + weekStart, source: 'weekly' };
+  const card = document.getElementById('rewardDrawCard');
+  card.innerHTML = `
+    <div style="font-size:40px;margin-bottom:10px;">🗓️</div>
+    <div style="font-size:18px;color:var(--text);margin-bottom:6px;">本週習慣全達標！</div>
+    <div style="font-size:13px;color:var(--text-mid);line-height:1.7;margin-bottom:20px;">${weekStart.slice(5)} ～ ${sun.slice(5)}<br>每個習慣都達到目標，抽一個週獎勵 ✨</div>
+    <button class="btn btn-habit" style="margin:0;" onclick="doDraw()">抽週獎勵 🎲</button>
+    <button class="ai-redo" style="margin-top:14px;" onclick="closeRewardDraw()">下次再說</button>`;
+  document.getElementById('rewardDrawOverlay').classList.add('visible');
+  card.classList.add('visible');
+}
 function doDraw() {
-  if (!rewardDayKey) return;
+  if (!pendingDraw) return;
   const card = document.getElementById('rewardDrawCard');
   card.innerHTML = `<div class="reward-spin">🎲</div><div style="font-size:14px;color:var(--text-dim);margin-top:14px;">抽獎中…</div>`;
-  const dk = rewardDayKey;
-  setTimeout(() => { renderDrawResult(drawReward(dk)); }, 700);
+  const pd = pendingDraw;
+  setTimeout(() => { renderDrawResult(drawReward(pd.historyDate, pd.drawnKey, pd.source)); }, 700);
 }
 function renderDrawResult(res) {
   const card = document.getElementById('rewardDrawCard');
@@ -1412,8 +1464,9 @@ function renderMoneyExtra(amount) {
 function closeRewardDraw() {
   document.getElementById('rewardDrawOverlay').classList.remove('visible');
   document.getElementById('rewardDrawCard').classList.remove('visible');
-  rewardDayKey = null;
+  pendingDraw = null;
   if (currentPage === 'today') renderToday();
+  if (currentPage === 'habit') renderHabit();
   const rs = document.getElementById('rewardSection');
   if (rs && rs.classList.contains('visible')) renderReward();
 }
@@ -1466,6 +1519,7 @@ function renderRewardHistory() {
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <span style="font-size:18px;">${REWARD_TYPE_EMOJI[h.type]||'🎁'}</span>
         <span style="font-size:13px;color:var(--morning);">${REWARD_TYPE_LABEL[h.type]||h.type}</span>
+        ${h.source==='weekly'?`<span style="font-size:10px;color:var(--bonus);border:1px solid rgba(180,142,232,0.4);border-radius:10px;padding:1px 6px;">🗓 週</span>`:''}
         <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);">${h.date}</span>
       </div>
       <div style="font-size:14px;color:var(--text-mid);line-height:1.6;">${escapeHtml(h.content)}</div>
