@@ -354,6 +354,8 @@ let currentPage = 'today';
 let currentDayTab = 'morning';
 let selectedDone = null, selectedBonusDone = null, selectedMood = null;
 let editingKey = null, editSelectedDone = null, editSelectedBonusDone = null, editSelectedMood = null;
+// 今日頁正在處理的「邏輯日」：進入今日頁／載入時擷取，跨午夜不自動改變，避免結算被記到隔天
+let activeDayKey = getTodayKey();
 
 function getTodayKey() {
   const d = new Date();
@@ -362,6 +364,11 @@ function getTodayKey() {
 function getFormattedDate() {
   const d = new Date();
   return `${d.getFullYear()} 年 ${d.getMonth()+1} 月 ${d.getDate()} 日　週${DAYS_ZH[d.getDay()]}`;
+}
+function formatActiveDate(key) {
+  const [y,m,d] = key.split('-').map(Number);
+  const date = new Date(y, m-1, d);
+  return `${y} 年 ${m} 月 ${d} 日　週${DAYS_ZH[date.getDay()]}`;
 }
 function formatDateLabel(key) {
   const [y,m,d] = key.split('-');
@@ -403,6 +410,8 @@ function showPage(page) {
     tabs.style.display = 'flex';
     subtitle.textContent = currentDayTab === 'morning' ? '毋須追憶昨日' : '深呼吸，放輕鬆';
     subtitle.style.color = currentDayTab === 'morning' ? 'rgba(232,201,122,0.85)' : 'rgba(138,180,201,0.85)';
+    activeDayKey = getTodayKey();
+    document.getElementById('dateLabel').textContent = formatActiveDate(activeDayKey);
     renderToday();
   } else {
     tabs.style.display = 'none';
@@ -429,7 +438,7 @@ function renderToday() {
 
 // ── Morning ──
 function renderMorning() {
-  const today = getTodayKey();
+  const today = activeDayKey;
   const existing = loadData('day_' + today);
   const el = document.getElementById('todayContent');
   if (existing && existing.tasks) {
@@ -466,7 +475,7 @@ function saveMorning() {
   if (!tasks.filter(Boolean).length) { showToast('至少填一個底線任務吧 🙂'); return; }
   const affirmation = document.getElementById('affirmInput').value.trim();
   const bonusTasks = [1,2].map(i => document.getElementById('bonus'+i).value.trim());
-  const today = getTodayKey();
+  const today = activeDayKey;
   const existing = loadData('day_'+today) || {};
   saveData('day_'+today, { ...existing, affirmation, tasks, bonusTasks, morningTime: new Date().toISOString() });
   showToast('✨ 今天的目標設定完成！');
@@ -474,14 +483,14 @@ function saveMorning() {
 }
 
 function resetMorning() {
-  const today = getTodayKey(); const existing = loadData('day_'+today) || {};
+  const today = activeDayKey; const existing = loadData('day_'+today) || {};
   delete existing.affirmation; delete existing.tasks; delete existing.bonusTasks; delete existing.morningTime;
   saveData('day_'+today, existing); renderMorning();
 }
 
 // ── Night ──
 function renderNight() {
-  const today = getTodayKey();
+  const today = activeDayKey;
   const existing = loadData('day_'+today) || {};
   const el = document.getElementById('todayContent');
   if (existing.closingNote !== undefined) {
@@ -555,7 +564,7 @@ function saveNight() {
   if (!gratitude.filter(Boolean).length) { showToast('寫一件感恩的事吧 🙏'); return; }
   const reflection = document.getElementById('mainreflectText').value.trim();
   const closingNote = document.getElementById('mainclosingNote').value.trim();
-  const today = getTodayKey(); const existing = loadData('day_'+today)||{};
+  const today = activeDayKey; const existing = loadData('day_'+today)||{};
   saveData('day_'+today, { ...existing, done:selectedDone, bonusDone:selectedBonusDone||0, mood:selectedMood, gratitude, reflection, closingNote:closingNote||'', nightTime:new Date().toISOString() });
   showToast('🌙 今日結算完成，好好休息！');
   renderNight();
@@ -563,7 +572,7 @@ function saveNight() {
 }
 
 function resetNight() {
-  const today=getTodayKey(); const existing=loadData('day_'+today)||{};
+  const today=activeDayKey; const existing=loadData('day_'+today)||{};
   ['done','bonusDone','mood','gratitude','reflection','closingNote','nightTime'].forEach(k=>delete existing[k]);
   saveData('day_'+today, existing); selectedDone=null; selectedBonusDone=null; selectedMood=null; renderNight();
 }
@@ -1054,7 +1063,7 @@ function renderNightHabits() {
   const habits = getHabits();
   const el = document.getElementById('nightHabitsArea');
   if (!el || habits.length === 0) return;
-  const today = getTodayKey();
+  const today = activeDayKey;
   const log = getHabitLog(today);
   el.innerHTML = habits.map(h => {
     const checked = log[h.id];
@@ -1069,7 +1078,7 @@ function renderNightHabits() {
 }
 
 function toggleNightHabit(habitId) {
-  const today = getTodayKey();
+  const today = activeDayKey;
   const log = getHabitLog(today);
   log[habitId] = !log[habitId];
   if (!log[habitId]) delete log[habitId];
