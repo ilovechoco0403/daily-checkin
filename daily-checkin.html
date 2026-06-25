@@ -1483,6 +1483,7 @@ function closeRewardDraw() {
 // ── 獎勵頁 ──
 let rewardTab = 'history';
 let poolEdit = { quote:null, intangible:null, challenge:null };
+let rewardHistoryExpanded = false;
 function openRewardPage() {
   ['today','habit','log','week'].forEach(p => document.getElementById(p+'Section').classList.remove('visible'));
   document.getElementById('habitHistorySection').classList.remove('visible');
@@ -1493,6 +1494,7 @@ function openRewardPage() {
   rewardTab = 'history';
   poolEdit = { quote:null, intangible:null, challenge:null };
   fulfillingId = null;
+  rewardHistoryExpanded = false;
   renderReward();
 }
 function closeRewardPage() {
@@ -1500,7 +1502,7 @@ function closeRewardPage() {
   document.getElementById('mainHeader').style.display = '';
   showPage(currentPage);
 }
-function switchRewardTab(t) { rewardTab = t; fulfillingId = null; poolEdit = { quote:null, intangible:null, challenge:null }; renderReward(); }
+function switchRewardTab(t) { rewardTab = t; fulfillingId = null; poolEdit = { quote:null, intangible:null, challenge:null }; rewardHistoryExpanded = false; renderReward(); }
 
 function renderReward() {
   const el = document.getElementById('rewardContent');
@@ -1520,10 +1522,12 @@ function renderReward() {
     ${body}`;
 }
 
+const REWARD_HISTORY_LIMIT = 5;
 function renderRewardHistory() {
-  const hist = getRewardHistory().slice().reverse();
-  if (!hist.length) return `<div class="empty-log">還沒有中獎紀錄<br><span style="font-size:12px;">當某天 3 項底線任務全完成、做完晚上總結後，就能抽獎 🎲</span></div>`;
-  return hist.map(h => `
+  const all = getRewardHistory().slice().reverse();
+  if (!all.length) return `<div class="empty-log">還沒有中獎紀錄<br><span style="font-size:12px;">當某天 3 項底線任務全完成、做完晚上總結後，就能抽獎 🎲</span></div>`;
+  const shown = rewardHistoryExpanded ? all : all.slice(0, REWARD_HISTORY_LIMIT);
+  const cards = shown.map(h => `
     <div class="card" style="margin-bottom:10px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
         <span style="font-size:18px;">${REWARD_TYPE_EMOJI[h.type]||'🎁'}</span>
@@ -1533,7 +1537,15 @@ function renderRewardHistory() {
       </div>
       <div style="font-size:14px;color:var(--text-mid);line-height:1.6;">${escapeHtml(h.content)}</div>
     </div>`).join('');
+  let moreBtn = '';
+  if (all.length > REWARD_HISTORY_LIMIT) {
+    moreBtn = rewardHistoryExpanded
+      ? `<button class="btn" style="margin-top:4px;background:var(--surface2);color:var(--text-mid);border:1px solid var(--border);" onclick="toggleRewardHistory()">收起</button>`
+      : `<button class="btn" style="margin-top:4px;background:var(--surface2);color:var(--text-mid);border:1px solid var(--border);" onclick="toggleRewardHistory()">顯示更多（還有 ${all.length - REWARD_HISTORY_LIMIT} 筆）</button>`;
+  }
+  return cards + moreBtn;
 }
+function toggleRewardHistory() { rewardHistoryExpanded = !rewardHistoryExpanded; renderReward(); }
 
 function renderRewardPool() {
   const pool = getRewardPool();
